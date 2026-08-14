@@ -91,9 +91,9 @@ export default function HomeScreen() {
         {recentTrips.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
-              <Text weight="bold" style={styles.sectionTitle}>Recent Trips</Text>
+              <Text weight="medium" style={styles.sectionTitle}>Recent Trips</Text>
               <TouchableOpacity>
-                <Text style={styles.viewAll}>View All</Text>
+                <Text weight="medium" style={styles.viewAll}>View All</Text>
               </TouchableOpacity>
             </View>
 
@@ -109,7 +109,7 @@ export default function HomeScreen() {
                     contentFit="contain"
                   />
                 </View>
-                <Text style={styles.tripMeta}>
+                <Text weight="medium" style={styles.tripMeta}>
                   {trip.duration} · {trip.price}
                 </Text>
               </TouchableOpacity>
@@ -119,7 +119,7 @@ export default function HomeScreen() {
 
         {/* Popular Destinations */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Popular Destinations</Text>
+          <Text weight="medium" style={styles.sectionTitle}>Popular Destinations</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -143,7 +143,7 @@ export default function HomeScreen() {
                 contentFit="contain"
               />
             </View>
-            <Text style={styles.infoCardTitle}>Trotro Tips</Text>
+            <Text weight="medium" style={styles.infoCardTitle}>Trotro Tips</Text>
             <Text style={styles.infoCardDescDark}>
               New to the trotro life? Learn a few tips to make your travel experience a better
               and seamless one.
@@ -163,10 +163,9 @@ export default function HomeScreen() {
                 contentFit="contain"
               />
             </View>
-            <Text style={styles.infoCardTitle}>Route Hub</Text>
+            <Text weight="medium" style={styles.infoCardTitle}>Route Hub</Text>
             <Text style={styles.infoCardDescLight}>
-              Know a route we missed or one you&apos;d like to see? Let us know and help make
-              StreetMate better for everyone.
+              Know a route we missed? Have a request? Share your thoughts and help improve StreetMate.
             </Text>
             <Image
               source={require('@/assets/images/icons/arrow-circle-right.png')}
@@ -214,6 +213,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     marginTop: 10,
+    marginBottom: 10,
     overflow: 'hidden',
   },
   heroCardImage: {
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     height: 30,
   },
   section: {
-    marginTop: 28,
+    marginTop: 20,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -264,21 +264,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sectionTitle: {
-    fontSize: 17,
+    fontSize: 18,
     color: Palette.CustomBlack,
     marginBottom: 10,
   },
   viewAll: {
     fontSize: 12,
     color: Palette.DarkGray,
-
   },
   tripCard: {
     borderWidth: 1,
-    borderColor: Palette.Placeholder,
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 12,
+    borderColor: Palette.LightGray,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 10,
   },
   tripCardTop: {
     flexDirection: 'row',
@@ -293,33 +292,33 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   tripMeta: {
-    fontSize: 13,
+    fontSize: 14,
     color: Palette.DarkGray,
-    marginTop: 8,
+    marginTop: 0,
   },
   chipsRow: {
     flexGrow: 0,
   },
   chip: {
     borderWidth: 1,
-    borderColor: Palette.Placeholder,
+    borderColor: Palette.LightGray,
     borderRadius: 10,
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
   chipText: {
-    fontSize: 16,
+    fontSize: 15,
     color: Palette.CustomBlack,
   },
   infoCardRow: {
     flexDirection: 'row',
-    gap: 14,
+    gap: 20,
     marginTop: 28,
   },
   infoCard: {
     flex: 1,
     borderRadius: 20,
-    padding: 16,
+    padding: 20,
     minHeight: 210,
   },
   infoCardDark: {
@@ -331,37 +330,36 @@ const styles = StyleSheet.create({
   infoIconWrap: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: Palette.White,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: 10,
   },
   infoIcon: {
     width: 20,
     height: 20,
   },
   infoCardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
     color: Palette.CustomBlack,
-    marginBottom: 6,
+    marginBottom: 10,
   },
   infoCardDescDark: {
-    fontSize: 12.5,
-    color: '#3A3A3A',
-    lineHeight: 18,
+    fontSize: 14,
+    color: Palette.DarkGray,
+    lineHeight: 15,
     flex: 1,
   },
   infoCardDescLight: {
-    fontSize: 12.5,
-    color: '#8A8A8A',
-    lineHeight: 18,
+    fontSize: 14,
+    color: Palette.DarkGray,
+    lineHeight: 15,
     flex: 1,
   },
   infoArrowIcon: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     alignSelf: 'flex-end',
     marginTop: 10,
   },
