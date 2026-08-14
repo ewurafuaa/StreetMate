@@ -3,11 +3,9 @@ import { Animated, Dimensions, StyleSheet, Switch, TouchableOpacity, View } from
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { Palette } from '@/constants/theme';
-
 import { AppText as Text } from '@/components/app-text';
 
 const SIDEBAR_WIDTH = Dimensions.get('window').width * 0.78;
-
 
 const menuItems = [
   { key: 'home', label: 'Home', icon: require('@/assets/images/icons/home-20-regular.png') },
@@ -87,9 +85,9 @@ export function Sidebar({ visible, onClose, activeKey = 'home', onSelect }: Side
           <Switch
             value={darkModeOn}
             onValueChange={setDarkModeOn}
-            trackColor={{ false: '#E9E9E9', true: '#3FCF22' }}
+            trackColor={{ false: Palette.GrayBackground, true: Palette.Green }}
             thumbColor={Palette.White}
-            ios_backgroundColor={Palette.Placeholder}
+            ios_backgroundColor={Palette.GrayBackground}
           />
         </View>
       </Animated.View>
@@ -108,7 +106,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     width: 230,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Palette.White,
     paddingTop: 80,
     paddingHorizontal: 20,
     borderTopRightRadius: 20,
@@ -121,18 +119,18 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   menuList: {
-    gap: 4,
+    gap: 5,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
   },
   menuItemActive: {
-    backgroundColor: '#E9E9E9',
+    backgroundColor: Palette.GrayBackground,
   },
   menuIcon: {
     width: 20,
@@ -140,13 +138,13 @@ const styles = StyleSheet.create({
   },
   menuLabel: {
     fontSize: 16,
-    color: '#181818',
+    color: Palette.CustomBlack,
   },
   divider: {
     height: 1,
-    backgroundColor: '#BABABA',
+    backgroundColor: Palette.GrayBackground,
     marginTop: 20,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   darkModeRow: {
     flexDirection: 'row',
@@ -154,7 +152,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   darkModeLabel: {
-    fontSize: 15,
-    color: '#181818',
+    fontSize: 16,
+    color: Palette.CustomBlack,
   },
 });
