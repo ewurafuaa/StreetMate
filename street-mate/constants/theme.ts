@@ -27,6 +27,19 @@ export const Colors = {
   },
 };
 
+// Named color palette matching the Figma color styles — use directly in StyleSheet.create,
+// e.g. Palette.CustomBlack
+export const Palette = {
+  GrayBackground: '#E9E9E9',
+  CustomBlack: '#181818',
+  White: '#FFFFFF',
+  Placeholder: '#BABABA',
+  DarkGray: '#5F5F5F',
+  LightGray: '#D2D2D2',
+  Green: '#39B221',
+  Red: '#D32B2B',
+};
+
 export const Fonts = Platform.select({
   ios: {
     /** iOS `UIFontDescriptorSystemDesignDefault` */
