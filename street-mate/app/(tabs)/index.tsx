@@ -25,11 +25,10 @@ const recentTrips = [
 ];
 
 const popularDestinations = ['Madina', 'Circle', 'Atomic Junction', 'Achimota'];
+const heroMessages = ["LET'S HIT THE STREETS!", 'YEN KC!'];
 
 export default function HomeScreen() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const heroMessages = ["LET'S HIT THE STREETS!", 'YEN KC!'];
   const [messageIndex, setMessageIndex] = useState(0);
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;

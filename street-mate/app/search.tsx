@@ -17,7 +17,7 @@ export default function SearchScreen() {
             contentFit="contain"
           />
         </TouchableOpacity>
-        <Text weight="bold" style={styles.headerTitle}>Your Route</Text>
+        <Text weight="medium" style={styles.headerTitle}>Your Route</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -120,12 +120,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderWidth: 1,
-    borderColor: Palette.CustomBlack,
+    backgroundColor: Palette.White,
     borderRadius: 10,
     paddingVertical: 15,
     paddingHorizontal: 20,
     marginTop: 10,
+    shadowColor: Palette.Black,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.10,
+    shadowRadius: 10,
+    elevation: 8,
+    borderWidth: 1,
   },
   searchIcon: {
     width: 20,
@@ -148,7 +153,7 @@ const styles = StyleSheet.create({
     height: 20,
   },
   rowText: {
-    fontSize: 16,
+    fontSize: 14,
     color: Palette.CustomBlack,
   },
   divider: {
