@@ -1,5 +1,11 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Antonio_500Medium, useFonts } from '@expo-google-fonts/antonio';
+import {
+  Poppins_400Regular,
+  Poppins_500Medium,
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+  useFonts,
+} from '@expo-google-fonts/poppins';
 import { Image } from 'expo-image';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -17,10 +23,10 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [showSplash, setShowSplash] = useState(true);
   const [fontsLoaded] = useFonts({
-    Antonio_500Medium,
-    'HelveticaNowDisplay-Regular': require('@/assets/fonts/HelveticaNowDisplay-Regular.otf'),
-    'HelveticaNowDisplay-Medium': require('@/assets/fonts/HelveticaNowDisplay-Medium.otf'),
-    'HelveticaNowDisplay-Bold': require('@/assets/fonts/HelveticaNowDisplay-Bold.otf'),
+    Poppins_400Regular,
+    Poppins_500Medium,
+    Poppins_600SemiBold,
+    Poppins_700Bold,
   });
 
   useEffect(() => {

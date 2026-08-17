@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, TextInput, TouchableOpacity, View, ImageBackground } from 'react-native';
+import { Animated, ScrollView, StyleSheet, TouchableOpacity, View, ImageBackground } from 'react-native';
 import { AppText as Text } from '@/components/app-text';
 import { Sidebar } from '@/components/sidebar';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,10 +29,53 @@ const popularDestinations = ['Madina', 'Circle', 'Atomic Junction', 'Achimota'];
 export default function HomeScreen() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const heroMessages = ["LET'S HIT THE STREETS!", 'YEN KC!'];
+  const [messageIndex, setMessageIndex] = useState(0);
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Slide current text out to the left while fading
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: -30,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        // Swap to the next message, position it off-screen to the right
+        setMessageIndex((prev) => (prev + 1) % heroMessages.length);
+        slideAnim.setValue(30);
+
+        // Slide the new text in from the right while fading in
+        Animated.parallel([
+          Animated.timing(slideAnim, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [slideAnim, fadeAnim]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header */}
+      {/* Header + Hero card — static, does not scroll */}
+      <View style={styles.staticHeader}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <TouchableOpacity onPress={() => setSidebarOpen(true)}>
@@ -59,12 +102,18 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Hero card */}
         <ImageBackground
           source={require('@/assets/images/hero-card.png')}
           style={styles.heroCard}
           imageStyle={styles.heroCardImage}>
-          <Text style={styles.heroHeading}>IT&apos;S A GOOD DAY TO EXPLORE NEW PLACES.</Text>
+          <Animated.Text
+            style={[
+              styles.heroHeading,
+              styles.heroHeadingFont,
+              { transform: [{ translateX: slideAnim }], opacity: fadeAnim },
+            ]}>
+            {heroMessages[messageIndex]}
+          </Animated.Text>
           <Text weight="medium" style={styles.heroSubheading}>Find the right bus, find the right place.</Text>
 
           <TouchableOpacity style={styles.searchBar} activeOpacity={0.8} onPress={() => router.push('/search')}>
@@ -73,7 +122,7 @@ export default function HomeScreen() {
               style={styles.searchIcon}
               contentFit="contain"
             />
-            <Text style={styles.searchInputPlaceholder}>Where are you off to today?</Text>
+            <Text style={styles.searchInputPlaceholder}>Where to?</Text>
             <Image
               source={require('@/assets/images/icons/arrow-circle-right.png')}
               style={styles.arrowIcon}
@@ -81,7 +130,13 @@ export default function HomeScreen() {
             />
           </TouchableOpacity>
         </ImageBackground>
+      </View>
 
+      {/* Everything below — scrollable */}
+      <ScrollView
+        style={styles.scrollArea}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
         {/* Recent Trips — hidden entirely when there are none */}
         {recentTrips.length > 0 && (
           <View style={styles.section}>
@@ -114,61 +169,84 @@ export default function HomeScreen() {
 
         {/* Popular Destinations */}
         <View style={styles.section}>
-          <Text weight="medium" style={styles.sectionTitle}>Popular Destinations</Text>
+          <View style={styles.sectionHeaderRow}>
+              <Text weight="medium" style={styles.sectionTitle}>Popular Destinations</Text>
+              <TouchableOpacity>
+                <Text weight="medium" style={styles.viewAll}>View All</Text>
+              </TouchableOpacity>
+            </View>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            style={styles.chipsRow}
-            contentContainerStyle={{ gap: 10 }}>
+            style={styles.horizontalScroll}
+            contentContainerStyle={styles.destinationList}>
             {popularDestinations.map((place) => (
-              <TouchableOpacity key={place} style={styles.chip}>
-                <Text style={styles.chipText}>{place}</Text>
+              <TouchableOpacity key={place} style={styles.destinationCard}>
+                <Image
+                  source={require('@/assets/images/map-thumbnail.png')}
+                  style={styles.destinationImage}
+                  contentFit="cover"
+                />
+                <View style={styles.destinationTextGroup}>
+                  <Text weight="regular" style={styles.destinationName}>{place}</Text>
+                  <Text style={styles.destinationSubtitle}>View route</Text>
+                </View>
+                <Image
+                  source={require('@/assets/images/icons/arrow-circle-right.png')}
+                  style={styles.destinationArrow}
+                  contentFit="contain"
+                />
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
 
         {/* Info cards */}
-        <View style={styles.infoCardRow}>
-          <TouchableOpacity style={[styles.infoCard, styles.infoCardDark]}>
-            <View style={styles.infoIconWrap}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.horizontalScroll}
+          contentContainerStyle={styles.infoCardRow}>
+          <TouchableOpacity style={styles.infoCard}>
+            <Image
+              source={require('@/assets/images/trotro-tips.png')}
+              style={styles.infoCardImage}
+              contentFit="cover"
+            />
+            <Text weight="semibold" style={styles.infoCardTitle}>Trotro Tips</Text>
+            <View style={styles.infoCardBottomRow}>
+              <Text weight="regular" style={styles.infoCardDesc}>
+                New to the trotro life? Learn a few tips to make your travel experience a better
+                and seamless one.
+              </Text>
               <Image
-                source={require('@/assets/images/icons/lightbulb-circle-20-regular.png')}
-                style={styles.infoIcon}
+                source={require('@/assets/images/icons/arrow-circle-right.png')}
+                style={styles.infoArrowIcon}
                 contentFit="contain"
               />
             </View>
-            <Text weight="medium" style={styles.infoCardTitle}>Trotro Tips</Text>
-            <Text style={styles.infoCardDescDark}>
-              New to the trotro life? Learn a few tips to make your travel experience a better
-              and seamless one.
-            </Text>
-            <Image
-              source={require('@/assets/images/icons/arrow-circle-right.png')}
-              style={styles.infoArrowIcon}
-              contentFit="contain"
-            />
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.infoCard, styles.infoCardLight]}>
-            <View style={styles.infoIconWrap}>
+          <TouchableOpacity style={styles.infoCard}>
+            <Image
+              source={require('@/assets/images/route-hub.png')}
+              style={styles.infoCardImage}
+              contentFit="cover"
+            />
+            <Text weight="bold" style={styles.infoCardTitle}>Route Hub</Text>
+            <View style={styles.infoCardBottomRow}>
+              <Text style={styles.infoCardDesc}>
+                Know a route we missed? Have a request? Share your thoughts and help improve
+                StreetMate.
+              </Text>
               <Image
-                source={require('@/assets/images/icons/map-20-regular.png')}
-                style={styles.infoIcon}
+                source={require('@/assets/images/icons/arrow-circle-right.png')}
+                style={styles.infoArrowIcon}
                 contentFit="contain"
               />
             </View>
-            <Text weight="medium" style={styles.infoCardTitle}>Route Hub</Text>
-            <Text style={styles.infoCardDescLight}>
-              Know a route we missed? Have a request? Share your thoughts and help improve StreetMate.
-            </Text>
-            <Image
-              source={require('@/assets/images/icons/arrow-circle-right.png')}
-              style={styles.infoArrowIcon}
-              contentFit="contain"
-            />
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </ScrollView>
 
       <Sidebar visible={sidebarOpen} onClose={() => setSidebarOpen(false)} activeKey="home" />
@@ -181,9 +259,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Palette.White,
   },
+  staticHeader: {
+    paddingHorizontal: 20,
+  },
+  scrollArea: {
+    flex: 1,
+  },
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 40,
+    paddingTop: 4,
   },
   header: {
     flexDirection: 'row',
@@ -217,15 +302,17 @@ const styles = StyleSheet.create({
   heroHeading: {
     color: Palette.White,
     fontSize: 24,
-    fontFamily: 'Antonio_500Medium',
     lineHeight: 30,
     textTransform: 'uppercase',
+  },
+  heroHeadingFont: {
+    fontFamily: 'Poppins_700Bold',
   },
   heroSubheading: {
     color: Palette.Placeholder,
     fontSize: 14,
     marginTop: 5,
-    marginBottom: 70,
+    marginBottom: 100,
   },
   searchBar: {
     flexDirection: 'row',
@@ -240,17 +327,11 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: Palette.CustomBlack,
-    fontFamily: 'HelveticaNowDisplay-Medium',
-  },
   searchInputPlaceholder: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 16,
     color: Palette.Placeholder,
-    fontFamily: 'HelveticaNowDisplay-Medium',
+    fontFamily: 'Poppins_400Regular',
   },
   arrowIcon: {
     width: 30,
@@ -270,7 +351,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   viewAll: {
-    fontSize: 12,
+    fontSize: 14,
     color: Palette.DarkGray,
   },
   tripCard: {
@@ -292,78 +373,94 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Palette.CustomBlack,
     flex: 1,
-    marginRight: 12,
+    marginRight: 10,
   },
   tripMeta: {
     fontSize: 14,
     color: Palette.DarkGray,
-    marginTop: 0,
+    marginTop: 5,
   },
-  chipsRow: {
-    flexGrow: 0,
+  horizontalScroll: {
+    overflow: 'visible',
   },
-  chip: {
+  destinationList: {
+    gap: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+  },
+  destinationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: Palette.LightGray,
-    borderRadius: 10,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  chipText: {
-    fontSize: 15,
-    color: Palette.CustomBlack,
-  },
-  infoCardRow: {
-    flexDirection: 'row',
-    gap: 20,
-    marginTop: 28,
-  },
-  infoCard: {
-    flex: 1,
     borderRadius: 20,
     padding: 20,
-    minHeight: 210,
+    gap: 10,
   },
-  infoCardDark: {
-    backgroundColor: Palette.LightGray,
-  },
-  infoCardLight: {
-    backgroundColor: Palette.GrayBackground,
-  },
-  infoIconWrap: {
-    width: 40,
-    height: 40,
+  destinationImage: {
+    width: 50,
+    height: 50,
     borderRadius: 10,
-    backgroundColor: Palette.White,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
   },
-  infoIcon: {
-    width: 20,
-    height: 20,
+  destinationTextGroup: {
+    flexShrink: 0,
+  },
+  destinationName: {
+    fontSize: 16,
+    color: Palette.CustomBlack,
+  },
+  destinationSubtitle: {
+    fontSize: 14,
+    color: Palette.DarkGray,
+    marginTop: 0,
+  },
+  destinationArrow: {
+    width: 30,
+    height: 30,
+  },
+  infoCardRow: {
+    gap: 20,
+    marginTop: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+  },
+  infoCard: {
+    width: 350,
+    backgroundColor: Palette.White,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: Palette.Black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  infoCardImage: {
+    width: '100%',
+    height: 150,
+    borderRadius: 10,
+    marginBottom: 10,
   },
   infoCardTitle: {
-    fontSize: 18,
+    fontSize: 16,
     color: Palette.CustomBlack,
-    marginBottom: 10,
+    marginBottom: 6,
+    paddingHorizontal: 4,
   },
-  infoCardDescDark: {
+  infoCardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+    paddingHorizontal: 4,
+  },
+  infoCardDesc: {
+    flex: 1,
     fontSize: 14,
     color: Palette.DarkGray,
-    lineHeight: 15,
-    flex: 1,
-  },
-  infoCardDescLight: {
-    fontSize: 14,
-    color: Palette.DarkGray,
-    lineHeight: 15,
-    flex: 1,
+    lineHeight: 14,
   },
   infoArrowIcon: {
     width: 30,
     height: 30,
-    alignSelf: 'flex-end',
-    marginTop: 10,
   },
 });

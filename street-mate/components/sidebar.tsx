@@ -1,3 +1,4 @@
+//sidebar.tsx
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     borderRadius: 10,
   },
   menuItemActive: {

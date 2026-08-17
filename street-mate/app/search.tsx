@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: Palette.CustomBlack,
-    fontFamily: 'HelveticaNowDisplay-Regular',
+    fontFamily: 'Poppins_400Regular',
   },
   row: {
     flexDirection: 'row',

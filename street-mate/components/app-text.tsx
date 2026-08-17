@@ -1,11 +1,12 @@
-import { Text as RNText, TextProps } from 'react-native';
+import { Text as RNText, StyleSheet, TextProps } from 'react-native';
 
-type Weight = 'regular' | 'medium' | 'bold';
+type Weight = 'regular' | 'medium' | 'semibold' | 'bold';
 
 const fontMap: Record<Weight, string> = {
-  regular: 'HelveticaNowDisplay-Regular',
-  medium: 'HelveticaNowDisplay-Medium',
-  bold: 'HelveticaNowDisplay-Bold',
+  regular: 'Poppins_400Regular',
+  medium: 'Poppins_500Medium',
+  semibold: 'Poppins_600SemiBold',
+  bold: 'Poppins_700Bold',
 };
 
 type AppTextProps = TextProps & {
