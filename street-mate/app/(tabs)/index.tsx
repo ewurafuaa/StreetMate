@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { ScrollView, StyleSheet, TextInput, TouchableOpacity, View, ImageBackground } from 'react-native';
 import { AppText as Text } from '@/components/app-text';
 import { Sidebar } from '@/components/sidebar';
@@ -66,25 +67,19 @@ export default function HomeScreen() {
           <Text style={styles.heroHeading}>IT&apos;S A GOOD DAY TO EXPLORE NEW PLACES.</Text>
           <Text weight="medium" style={styles.heroSubheading}>Find the right bus, find the right place.</Text>
 
-          <View style={styles.searchBar}>
+          <TouchableOpacity style={styles.searchBar} activeOpacity={0.8} onPress={() => router.push('/search')}>
             <Image
               source={require('@/assets/images/icons/search.png')}
               style={styles.searchIcon}
               contentFit="contain"
             />
-            <TextInput
-              placeholder="Where are you off to today?"
-              placeholderTextColor={Palette.Placeholder}
-              style={styles.searchInput}
+            <Text style={styles.searchInputPlaceholder}>Where are you off to today?</Text>
+            <Image
+              source={require('@/assets/images/icons/arrow-circle-right.png')}
+              style={styles.arrowIcon}
+              contentFit="contain"
             />
-            <TouchableOpacity>
-              <Image
-                source={require('@/assets/images/icons/arrow-circle-right.png')}
-                style={styles.arrowIcon}
-                contentFit="contain"
-              />
-            </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         </ImageBackground>
 
         {/* Recent Trips — hidden entirely when there are none */}
@@ -99,19 +94,19 @@ export default function HomeScreen() {
 
             {recentTrips.map((trip) => (
               <TouchableOpacity key={trip.id} style={styles.tripCard}>
-                <View style={styles.tripCardTop}>
+                <View style={styles.tripCardTextGroup}>
                   <Text style={styles.tripRoute} numberOfLines={1}>
                     {trip.route.join('  →  ')}
                   </Text>
-                  <Image
-                    source={require('@/assets/images/icons/arrow-circle-right.png')}
-                    style={styles.arrowIcon}
-                    contentFit="contain"
-                  />
+                  <Text weight="medium" style={styles.tripMeta}>
+                    {trip.duration} · {trip.price}
+                  </Text>
                 </View>
-                <Text weight="medium" style={styles.tripMeta}>
-                  {trip.duration} · {trip.price}
-                </Text>
+                <Image
+                  source={require('@/assets/images/icons/arrow-circle-right.png')}
+                  style={styles.arrowIcon}
+                  contentFit="contain"
+                />
               </TouchableOpacity>
             ))}
           </View>
@@ -202,8 +197,8 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   headerIcon: {
-    width: 24,
-    height: 24,
+    width: 30,
+    height: 30,
   },
   logo: {
     width: 156,
@@ -251,6 +246,12 @@ const styles = StyleSheet.create({
     color: Palette.CustomBlack,
     fontFamily: 'HelveticaNowDisplay-Medium',
   },
+  searchInputPlaceholder: {
+    flex: 1,
+    fontSize: 14,
+    color: Palette.Placeholder,
+    fontFamily: 'HelveticaNowDisplay-Medium',
+  },
   arrowIcon: {
     width: 30,
     height: 30,
@@ -273,16 +274,18 @@ const styles = StyleSheet.create({
     color: Palette.DarkGray,
   },
   tripCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: Palette.LightGray,
     borderRadius: 20,
     padding: 20,
     marginBottom: 10,
   },
-  tripCardTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  tripCardTextGroup: {
+    flex: 1,
+    marginRight: 12,
   },
   tripRoute: {
     fontSize: 16,

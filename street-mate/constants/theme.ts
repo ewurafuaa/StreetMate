@@ -31,6 +31,7 @@ export const Colors = {
 // e.g. Palette.CustomBlack
 export const Palette = {
   GrayBackground: '#E9E9E9',
+  Black: '#000000',
   CustomBlack: '#181818',
   White: '#FFFFFF',
   Placeholder: '#BABABA',
