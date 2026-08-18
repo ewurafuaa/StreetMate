@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, PanResponder, ScrollView, StyleSheet, TouchableOpacity, View, LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText as Text } from '@/components/app-text';
 import { Palette } from '@/constants/theme';
@@ -18,9 +18,123 @@ const mockRoute = {
   totalTrips: 1,
 };
 
+// Mock alternate routes — replace with real routing engine output later.
+const mockAllRoutes = [
+  {
+    id: '1',
+    duration: '35 mins',
+    fare: 'GH¢ 5.00',
+    stops: ['Pantang Junction', 'UPS'],
+    trips: 1,
+    recommended: true,
+    badges: ['Fastest', 'Cheapest'],
+  },
+  {
+    id: '2',
+    duration: '40 mins',
+    fare: 'GH¢ 9.00',
+    stops: ['Pantang Junction', 'Madina', 'UPS'],
+    trips: 2,
+  },
+  {
+    id: '3',
+    duration: '1 hr',
+    fare: 'GH¢ 9.50',
+    stops: ['Pantang Junction', 'Atomic', 'UPS'],
+    trips: 2,
+  },
+];
+
+const MAX_ROUTES_HEIGHT = Dimensions.get('window').height * 0.5;
+
+function RouteCard({ route, highlighted }: { route: (typeof mockAllRoutes)[number]; highlighted?: boolean }) {
+  return (
+    <TouchableOpacity style={[styles.routeCard, highlighted && styles.routeCardHighlighted]}>
+      <View style={styles.routeCardTopRow}>
+        <Text weight="medium" style={styles.routeDuration}>{route.duration}</Text>
+        <Text weight="medium" style={styles.routeFare}>
+          GH¢<Text weight="medium" style={styles.routeFareAmount}>{route.fare.replace('GH¢', '').trim()}</Text>
+        </Text>
+      </View>
+
+      <Text numberOfLines={1} style={styles.routeStops}>{route.stops.join('  →  ')}</Text>
+
+      <View style={styles.routeBottomRow}>
+        <View style={styles.routeTripsGroup}>
+          <Image
+            source={require('@/assets/images/icons/trip-icon.png')}
+            style={styles.routeTripsIcon}
+            contentFit="contain"
+          />
+          <Text weight="medium" style={styles.routeTripsText}>{route.trips} {route.trips === 1 ? 'Trip' : 'Trips'}</Text>
+        </View>
+
+        {route.badges && route.badges.length > 0 && (
+          <View style={styles.routeBadgesGroup}>
+            {route.badges.map((badge, index) => (
+              <View key={badge} style={styles.routeBadgeItem}>
+                <Image
+                  source={
+                    badge === 'Fastest'
+                      ? require('@/assets/images/icons/fastest.png')
+                      : require('@/assets/images/icons/cheapest.png')
+                  }
+                  style={styles.routeBadgeIcon}
+                  contentFit="contain"
+                />
+                <Text weight="medium" style={styles.routeBadgeText}>{badge}</Text>
+                {index < route.badges.length - 1 && <Text style={styles.routeBadgeDot}> · </Text>}
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 export default function MapScreen() {
   const { origin, destination } = useLocalSearchParams<{ origin?: string; destination?: string }>();
   const [activeTab, setActiveTab] = useState<'best' | 'all'>('best');
+  const [otherRoutesExpanded, setOtherRoutesExpanded] = useState(true);
+  const expandAnim = useRef(new Animated.Value(1)).current; // 1 = expanded, 0 = collapsed
+
+  const animateTo = (expanded: boolean) => {
+    setOtherRoutesExpanded(expanded);
+    Animated.spring(expandAnim, {
+      toValue: expanded ? 1 : 0,
+      useNativeDriver: false, // animating height/maxHeight requires the JS driver
+      friction: 8,
+      tension: 60,
+    }).start();
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 5,
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 15) {
+          // Dragged down — collapse to show only Recommended
+          animateTo(false);
+        } else if (gestureState.dy < -15) {
+          // Dragged up — expand to show Other Routes too
+          animateTo(true);
+        }
+      },
+    })
+  ).current;
+
+  useEffect(() => {
+    // Reset to expanded whenever leaving the All Routes tab, so it's fresh next time
+    if (activeTab !== 'all' && !otherRoutesExpanded) {
+      animateTo(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  const recommendedRoute = mockAllRoutes.find((r) => r.recommended);
+  const otherRoutes = mockAllRoutes.filter((r) => !r.recommended);
 
   return (
     <View style={styles.container}>
@@ -63,7 +177,11 @@ export default function MapScreen() {
 
       {/* Bottom sheet */}
       <View style={styles.bottomSheet}>
-        <View style={styles.dragHandle} />
+        <View
+          style={styles.dragHandle}
+          {...panResponder.panHandlers}
+          hitSlop={{ top: 15, bottom: 15, left: 40, right: 40 }}
+        />
 
         <View style={styles.tabsRow}>
           <TouchableOpacity
@@ -84,83 +202,125 @@ export default function MapScreen() {
               ALL ROUTES
             </Text>
           </TouchableOpacity>
-          <Text style={styles.tripCount}>
-            <Text weight="semibold" style={styles.tripCountActive}>{mockRoute.activeTripNumber}</Text>
-            <Text weight="medium" style={styles.tripCount}> of {mockRoute.totalTrips} trip</Text>
-          </Text>
+
+          {activeTab === 'best' ? (
+            <Text style={styles.tripCount}>
+              <Text weight="semibold" style={styles.tripCountActive}>{mockRoute.activeTripNumber}</Text>
+              <Text weight="medium" style={styles.tripCount}> of {mockRoute.totalTrips} trip</Text>
+            </Text>
+          ) : (
+            <Text weight="medium" style={styles.tripCount}>{mockAllRoutes.length} routes found</Text>
+          )}
         </View>
 
-        <View style={styles.stopCard}>
-          <View style={styles.stopCardRow}>
-            <View>
-              <Text weight="medium" style={styles.stopCardLabel}>Stop Name</Text>
-              <Text weight="medium" style={styles.stopCardValue}>{mockRoute.stopName}</Text>
-            </View>
-            <View style={styles.stopCardRight}>
-              <Text weight="medium" style={styles.stopCardLabel}>Available Trotro</Text>
-              <Text weight="medium" style={styles.stopCardValue}>{mockRoute.availableTrotro}</Text>
-            </View>
-          </View>
+        {activeTab === 'best' ? (
+          <>
+            <View style={styles.stopCard}>
+              <View style={styles.stopCardRow}>
+                <View>
+                  <Text weight="medium" style={styles.stopCardLabel}>Stop Name</Text>
+                  <Text weight="medium" style={styles.stopCardValue}>{mockRoute.stopName}</Text>
+                </View>
+                <View style={styles.stopCardRight}>
+                  <Text weight="medium" style={styles.stopCardLabel}>Available Trotro</Text>
+                  <Text weight="medium" style={styles.stopCardValue}>{mockRoute.availableTrotro}</Text>
+                </View>
+              </View>
 
-          <View style={styles.stopCardBottomRow}>
-            <View style={styles.otherTrotrosGroup}>
-              <Text weight="medium" style={styles.stopCardLabel}>Other Trotros on Route</Text>
-              <Text style={styles.otherTrotrosText}>{mockRoute.otherTrotros}</Text>
-            </View>
-            <TouchableOpacity style={styles.stopCardArrowButton}>
-              <Image
-                source={require('@/assets/images/icons/arrow-circle-right.png')}
-                style={styles.stopCardArrowIcon}
-                contentFit="contain"
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Image
-              source={require('@/assets/images/icons/estimated-time.png')}
-              style={styles.statIcon}
-              contentFit="contain"
-            />
-            <View>
-              <Text weight="medium" style={styles.statLabel}>Est. Time</Text>
-              <Text weight="medium" style={styles.statValue}>{mockRoute.estTime}</Text>
-            </View>
-          </View>
-
-          <View style={styles.statItem}>
-            <Image
-              source={require('@/assets/images/icons/estimated-fare.png')}
-              style={styles.statIcon}
-              contentFit="contain"
-            />
-            <View>
-              <Text weight="medium" style={styles.statLabel}>Est. Fare</Text>
-              <Text weight="medium" style={styles.statValue}>{mockRoute.estFare}</Text>
-            </View>
-          </View>
-
-          <View style={styles.statItem}>
-            <Image
-              source={require('@/assets/images/icons/availability-status.png')}
-              style={styles.statIcon}
-              contentFit="contain"
-            />
-            <View>
-              <Text weight="medium" style={styles.statLabel}>Availability</Text>
-              <View style={styles.availabilityRow}>
-                <View style={styles.availabilityDot} />
-                <Text weight="medium" style={styles.statValue}>{mockRoute.availability}</Text>
+              <View style={styles.stopCardBottomRow}>
+                <View style={styles.otherTrotrosGroup}>
+                  <Text weight="medium" style={styles.stopCardLabel}>Other Trotros on Route</Text>
+                  <Text style={styles.otherTrotrosText}>{mockRoute.otherTrotros}</Text>
+                </View>
+                <TouchableOpacity style={styles.stopCardArrowButton}>
+                  <Image
+                    source={require('@/assets/images/icons/arrow-circle-right.png')}
+                    style={styles.stopCardArrowIcon}
+                    contentFit="contain"
+                  />
+                </TouchableOpacity>
               </View>
             </View>
-          </View>
-        </View>
 
-        <TouchableOpacity style={styles.startButton}>
-          <Text weight="medium" style={styles.startButtonText}>Start Journey</Text>
-        </TouchableOpacity>
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Image
+                  source={require('@/assets/images/icons/estimated-time.png')}
+                  style={styles.statIcon}
+                  contentFit="contain"
+                />
+                <View>
+                  <Text weight="medium" style={styles.statLabel}>Est. Time</Text>
+                  <Text weight="medium" style={styles.statValue}>{mockRoute.estTime}</Text>
+                </View>
+              </View>
+
+              <View style={styles.statItem}>
+                <Image
+                  source={require('@/assets/images/icons/estimated-fare.png')}
+                  style={styles.statIcon}
+                  contentFit="contain"
+                />
+                <View>
+                  <Text weight="medium" style={styles.statLabel}>Est. Fare</Text>
+                  <Text weight="medium" style={styles.statValue}>{mockRoute.estFare}</Text>
+                </View>
+              </View>
+
+              <View style={styles.statItem}>
+                <Image
+                  source={require('@/assets/images/icons/availability-status.png')}
+                  style={styles.statIcon}
+                  contentFit="contain"
+                />
+                <View>
+                  <Text weight="medium" style={styles.statLabel}>Availability</Text>
+                  <View style={styles.availabilityRow}>
+                    <View style={styles.availabilityDot} />
+                    <Text weight="medium" style={styles.statValue}>{mockRoute.availability}</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.startButton}>
+              <Text weight="bold" style={styles.startButtonText}>Start Journey</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            style={{ maxHeight: MAX_ROUTES_HEIGHT }}>
+            {recommendedRoute && (
+              <View style={styles.routeSection}>
+                <Text weight="semibold" style={styles.routeSectionTitle}>Recommended</Text>
+                <RouteCard route={recommendedRoute} highlighted />
+              </View>
+            )}
+
+            {otherRoutes.length > 0 && (
+              <Animated.View
+                style={[
+                  styles.routeSectionLast,
+                  {
+                    opacity: expandAnim,
+                    maxHeight: expandAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, 600],
+                    }),
+                    overflow: 'hidden',
+                  },
+                ]}>
+                <View style={styles.routeSection}>
+                  <Text weight="semibold" style={styles.routeSectionTitle}>Other Routes</Text>
+                  {otherRoutes.map((route) => (
+                    <RouteCard key={route.id} route={route} />
+                  ))}
+                </View>
+              </Animated.View>
+            )}
+          </ScrollView>
+        )}
       </View>
     </View>
   );
@@ -263,7 +423,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingTop: 10,
     paddingHorizontal: 20,
-    paddingBottom: 30,
+    paddingBottom: 20,
     margin: 20,
   },
   dragHandle: {
@@ -394,5 +554,89 @@ const styles = StyleSheet.create({
   startButtonText: {
     color: Palette.White,
     fontSize: 16,
+  },
+  routeSection: {
+    marginBottom: 20,
+  },
+  routeSectionTitle: {
+    paddingBottom: 10,
+    fontSize: 16,
+  },
+  routeSectionLast: {
+    marginBottom: 0,
+  },
+  routeCard: {
+    borderWidth: 1,
+    borderColor: Palette.LightGray,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 10,
+  },
+  routeCardHighlighted: {
+    borderColor: Palette.CustomBlack,
+  },
+  routeCardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  routeDuration: {
+    fontSize: 24,
+    color: Palette.CustomBlack,
+  },
+  routeFare: {
+    fontSize: 16,
+    color: Palette.CustomBlack,
+  },
+  routeFareAmount: {
+    fontSize: 24,
+    color: Palette.CustomBlack,
+  },
+  routeStops: {
+    fontSize: 16,
+    color: Palette.CustomBlack,
+    marginBottom: 10,
+  },
+  routeBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  routeTripsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  routeTripsIcon: {
+    width: 16,
+    height: 16,
+  },
+  routeTripsText: {
+    fontSize: 14,
+    color: Palette.DarkGray,
+  },
+  routeBadgesGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  routeBadgeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  routeBadgeIcon: {
+    width: 16,
+    height: 16,
+  },
+  routeBadgeText: {
+    fontSize: 14,
+    color: Palette.DarkGray,
+  },
+  routeBadgeDot: {
+    fontSize: 16,
+    color: Palette.DarkGray,
   },
 });
