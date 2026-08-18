@@ -55,6 +55,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         <Stack.Screen name="search" options={{ headerShown: false, presentation: 'card' }} />
+        <Stack.Screen name="map" options={{ headerShown: false, presentation: 'card' }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
