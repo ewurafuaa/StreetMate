@@ -11,6 +11,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -39,30 +40,37 @@ export default function RootLayout() {
 
   if (showSplash || !fontsLoaded) {
     return (
-      <View style={styles.splashContainer}>
-        <Image
-          source={require('@/assets/images/streetmate-logo.gif')}
-          style={styles.splashImage}
-          contentFit="contain"
-        />
-      </View>
+      <GestureHandlerRootView style={styles.flexFill}>
+        <View style={styles.splashContainer}>
+          <Image
+            source={require('@/assets/images/streetmate-logo.gif')}
+            style={styles.splashImage}
+            contentFit="contain"
+          />
+        </View>
+      </GestureHandlerRootView>
     );
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        <Stack.Screen name="search" options={{ headerShown: false, presentation: 'card' }} />
-        <Stack.Screen name="map" options={{ headerShown: false, presentation: 'card' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <GestureHandlerRootView style={styles.flexFill}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          <Stack.Screen name="search" options={{ headerShown: false, presentation: 'card' }} />
+          <Stack.Screen name="map" options={{ headerShown: false, presentation: 'card' }} />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  flexFill: {
+    flex: 1,
+  },
   splashContainer: {
     flex: 1,
     backgroundColor: '#ffffff',
