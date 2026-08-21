@@ -25,7 +25,7 @@ const recentTrips = [
 ];
 
 const popularDestinations = ['Madina', 'Circle', 'Atomic Junction', 'Achimota'];
-const heroMessages = ["LET'S HIT THE STREETS!", 'YEN KC!'];
+const heroMessages = ["LET'S HIT THE STREETS!", 'YƐN KƆ!'];
 
 export default function HomeScreen() {
   const [sidebarOpen, setSidebarOpen] = useState(false);

@@ -27,6 +27,8 @@ const mockAllRoutes = [
         estTime: '35 mins',
         estFare: 'GH¢ 5.00',
         availability: 'High',
+        stopsCount: 4,
+        intermediateStops: ['Taxi Rank', 'Adenta Barrier', 'WASS', 'Kenkey House'],
       },
     ],
   },
@@ -44,6 +46,8 @@ const mockAllRoutes = [
         estTime: '30 mins',
         estFare: 'GH¢ 5.00',
         availability: 'High',
+        stopsCount: 6,
+        intermediateStops: ['Taxi Rank', 'Adenta Barrier', 'WASS', 'Kenkey House', 'Ritz Junction', 'Red Co.'],
       },
       {
         stopName: 'UPS',
@@ -52,6 +56,8 @@ const mockAllRoutes = [
         estTime: '10 mins',
         estFare: 'GH¢ 4.00',
         availability: 'High',
+        stopsCount: 1,
+        intermediateStops: ['Atomic Junction'],
       },
     ],
   },
@@ -69,6 +75,17 @@ const mockAllRoutes = [
         estTime: '45 mins',
         estFare: 'GH¢ 6.00',
         availability: 'Medium',
+        stopsCount: 8,
+        intermediateStops: [
+          'Taxi Rank',
+          'Adenta Barrier',
+          'WASS',
+          'Kenkey House',
+          'Ritz Junction',
+          'Red Co.',
+          'Shiashie',
+          '37 Station',
+        ],
       },
       {
         stopName: 'UPS',
@@ -77,16 +94,25 @@ const mockAllRoutes = [
         estTime: '15 mins',
         estFare: 'GH¢ 3.50',
         availability: 'High',
+        stopsCount: 2,
+        intermediateStops: ['Airport Junction', 'Ridge'],
       },
     ],
   },
 ];
 
 const MAX_ROUTES_HEIGHT = Dimensions.get('window').height * 0.5;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SWIPE_THRESHOLD = 50;
 
 // "1 trip" vs "2 trips" — singular only when the count is exactly 1
 const tripWord = (count: number) => (count === 1 ? 'trip' : 'trips');
+const stopWord = (count: number) => (count === 1 ? 'stop' : 'stops');
+
+// High beats Medium beats Low — used to summarize overall availability across all legs
+const availabilityRank: Record<string, number> = { High: 2, Medium: 1, Low: 0 };
+const worstAvailability = (values: string[]) =>
+  values.reduce((worst, current) => (availabilityRank[current] < availabilityRank[worst] ? current : worst), values[0]);
 
 function RouteCard({
   route,
@@ -148,9 +174,12 @@ export default function MapScreen() {
   const [otherRoutesExpanded, setOtherRoutesExpanded] = useState(true);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [currentTripIndex, setCurrentTripIndex] = useState(0);
+  const [showTripOverview, setShowTripOverview] = useState(false);
+  const [expandedLegKey, setExpandedLegKey] = useState<string | null>(null);
   const expandAnim = useRef(new Animated.Value(1)).current; // 1 = expanded, 0 = collapsed
   const tripSlide = useRef(new Animated.Value(0)).current;
   const tripOpacity = useRef(new Animated.Value(1)).current;
+  const overviewSlide = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   const selectedRoute = mockAllRoutes.find((r) => r.id === selectedRouteId) ?? null;
   const recommendedRoute = mockAllRoutes.find((r) => r.recommended);
@@ -160,11 +189,28 @@ export default function MapScreen() {
   const activeDetailRoute = selectedRoute ?? (activeTab === 'best' ? recommendedRoute : null);
   const activeTrip = activeDetailRoute?.tripDetails[currentTripIndex] ?? null;
 
+  // Build each leg for the Trip Overview panel: from → to, stops between, and that leg's stats
+  const overviewLegs = activeDetailRoute
+    ? activeDetailRoute.tripDetails.map((trip, index) => ({
+        from: index === 0 ? activeDetailRoute.stops[0] : activeDetailRoute.tripDetails[index - 1].stopName,
+        to: trip.stopName,
+        stopsCount: trip.stopsCount,
+        intermediateStops: trip.intermediateStops ?? [],
+        estTime: trip.estTime,
+        estFare: trip.estFare,
+        availability: trip.availability,
+      }))
+    : [];
+
+  const overallAvailability = activeDetailRoute
+    ? worstAvailability(activeDetailRoute.tripDetails.map((t) => t.availability))
+    : 'High';
+
   const animateTo = (expanded: boolean) => {
     setOtherRoutesExpanded(expanded);
     Animated.spring(expandAnim, {
       toValue: expanded ? 1 : 0,
-      useNativeDriver: false, // animating height/maxHeight requires the JS driver
+      useNativeDriver: false,
       friction: 8,
       tension: 60,
     }).start();
@@ -182,7 +228,6 @@ export default function MapScreen() {
   };
 
   const goToTripIndex = (nextIndex: number, direction: 'left' | 'right') => {
-    // Slide the current trip out, swap the index, slide the new trip in from the opposite side
     Animated.parallel([
       Animated.timing(tripSlide, {
         toValue: direction === 'left' ? -40 : 40,
@@ -237,18 +282,34 @@ export default function MapScreen() {
       onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 5,
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dy > 15) {
-          // Dragged down — collapse to show only Recommended
           animateTo(false);
         } else if (gestureState.dy < -15) {
-          // Dragged up — expand to show Other Routes too
           animateTo(true);
         }
       },
     })
   ).current;
 
+  const openTripOverview = () => {
+    setExpandedLegKey(null);
+    setShowTripOverview(true);
+    Animated.spring(overviewSlide, {
+      toValue: 0,
+      useNativeDriver: true,
+      friction: 9,
+      tension: 60,
+    }).start();
+  };
+
+  const closeTripOverview = () => {
+    Animated.timing(overviewSlide, {
+      toValue: SCREEN_HEIGHT,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => setShowTripOverview(false));
+  };
+
   useEffect(() => {
-    // Reset to expanded whenever leaving the All Routes tab, so it's fresh next time
     if (activeTab !== 'all' && !otherRoutesExpanded) {
       animateTo(true);
     }
@@ -338,7 +399,7 @@ export default function MapScreen() {
           <>
             <GestureDetector gesture={tripSwipeGesture}>
               <Animated.View style={{ transform: [{ translateX: tripSlide }], opacity: tripOpacity }}>
-                <View style={styles.stopCard}>
+                <TouchableOpacity style={styles.stopCard} onPress={openTripOverview} activeOpacity={0.8}>
                   <View style={styles.stopCardRow}>
                     <View>
                       <Text weight="medium" style={styles.stopCardLabel}>Stop Name</Text>
@@ -355,15 +416,15 @@ export default function MapScreen() {
                       <Text weight="medium" style={styles.stopCardLabel}>Other Trotros on Route</Text>
                       <Text numberOfLines={2} style={styles.otherTrotrosText}>{activeTrip.otherTrotros}</Text>
                     </View>
-                    <TouchableOpacity style={styles.stopCardArrowButton}>
+                    <View style={styles.stopCardArrowButton}>
                       <Image
                         source={require('@/assets/images/icons/arrow-circle-right.png')}
                         style={styles.stopCardArrowIcon}
                         contentFit="contain"
                       />
-                    </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
+                </TouchableOpacity>
 
                 <View style={styles.statsRow}>
                   <View style={styles.statItem}>
@@ -447,6 +508,154 @@ export default function MapScreen() {
           </ScrollView>
         )}
       </View>
+
+      {/* Trip Overview — slides up from the bottom, covering the map + bottom sheet */}
+      {showTripOverview && (
+        <Animated.View style={[styles.overviewPanel, { transform: [{ translateY: overviewSlide }] }]}>
+          <SafeAreaView style={styles.overviewSafeArea} edges={[]}>
+            <View style={styles.overviewHeader}>
+              <TouchableOpacity style={styles.overviewHeaderLeft} onPress={closeTripOverview}>
+                <Image
+                  source={require('@/assets/images/icons/chevron-left.png')}
+                  style={styles.backIcon}
+                  contentFit="contain"
+                />
+                <Text weight="medium" style={styles.overviewTitle}>Trip Overview</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.overviewRoutePill}>
+              <Text weight="medium" style={styles.overviewRouteText} numberOfLines={1}>
+                {origin ?? 'Current location'}  →  {destination ?? 'Destination'}
+              </Text>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.overviewScrollContent}>
+              {overviewLegs.map((leg, index) => {
+                const legKey = `${leg.from}-${leg.to}`;
+                const isExpanded = expandedLegKey === legKey;
+
+                return (
+                  <View key={legKey} style={styles.legCard}>
+                    <View style={styles.legHeaderRow}>
+                      <View style={styles.legBadge}>
+                        <Text weight="semibold" style={styles.legBadgeText}>{index + 1}</Text>
+                      </View>
+                      <Text weight="semibold" style={styles.legHeaderText}>
+                        {leg.from}  →  {leg.to}
+                      </Text>
+                    </View>
+
+                    <View style={styles.legStopsColumn}>
+                      <View style={styles.legStopRow}>
+                        <View style={styles.legDot} />
+                        <Text style={styles.legStopText}>{leg.from}</Text>
+                      </View>
+                      <View style={styles.legStopsLine} />
+
+                      {isExpanded ? (
+                        <>
+                          {leg.intermediateStops.map((stopName, stopIndex) => (
+                            <View key={stopName}>
+                              <TouchableOpacity
+                                style={styles.legStopRow}
+                                onPress={() => setExpandedLegKey(null)}>
+                                <View style={styles.legHollowDot} />
+                                <Text style={styles.legIntermediateStopText}>{stopName}</Text>
+                              </TouchableOpacity>
+                              {stopIndex < leg.intermediateStops.length - 1 && (
+                                <View style={styles.legStopsLine} />
+                              )}
+                            </View>
+                          ))}
+                        </>
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.legStopRow}
+                          onPress={() => setExpandedLegKey(legKey)}>
+                          <Text style={styles.legStopsBetweenText}>⋮  {leg.stopsCount} {stopWord(leg.stopsCount)}</Text>
+                        </TouchableOpacity>
+                      )}
+
+                      <View style={styles.legStopsLine} />
+                      <View style={styles.legStopRow}>
+                        <View style={styles.legDot} />
+                        <Text style={styles.legStopText}>{leg.to}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.legDivider} />
+
+                    <View style={[styles.statsRow, styles.legStatsRow]}>
+                      <View style={styles.statItem}>
+                        <Image
+                          source={require('@/assets/images/icons/estimated-time.png')}
+                          style={styles.statIcon}
+                          contentFit="contain"
+                        />
+                        <View>
+                          <Text weight="medium" style={styles.statLabel}>Est. Time</Text>
+                          <Text weight="medium" style={styles.statValue}>{leg.estTime}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.statItem}>
+                        <Image
+                          source={require('@/assets/images/icons/estimated-fare.png')}
+                          style={styles.statIcon}
+                          contentFit="contain"
+                        />
+                        <View>
+                          <Text weight="medium" style={styles.statLabel}>Est. Fare</Text>
+                          <Text weight="medium" style={styles.statValue}>{leg.estFare}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.statItem}>
+                        <Image
+                          source={require('@/assets/images/icons/availability-status.png')}
+                          style={styles.statIcon}
+                          contentFit="contain"
+                        />
+                        <View>
+                          <Text weight="medium" style={styles.statLabel}>Availability</Text>
+                          <View style={styles.availabilityRow}>
+                            <View style={styles.availabilityDot} />
+                            <Text weight="medium" style={styles.statValue}>{leg.availability}</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+              </ScrollView>
+
+              {activeDetailRoute && (
+              <View style={styles.summaryCardFixed}>
+                <Text weight="semibold" style={styles.summaryTitle}>Trip Summary</Text>
+
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Number of Trips</Text>
+                  <Text weight="medium" style={styles.summaryValue}>{activeDetailRoute.trips}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Estimated Time</Text>
+                  <Text weight="medium" style={styles.summaryValue}>{activeDetailRoute.duration}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Estimated Fare</Text>
+                  <Text weight="medium" style={styles.summaryValue}>{activeDetailRoute.fare}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Availability</Text>
+                  <Text weight="medium" style={styles.summaryValue}>{overallAvailability}</Text>
+                </View>
+              </View>
+            )}
+          </SafeAreaView>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -763,5 +972,176 @@ const styles = StyleSheet.create({
   routeBadgeDot: {
     fontSize: 16,
     color: Palette.DarkGray,
+  },
+  overviewPanel: {
+    position: 'absolute',
+    top: 60,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Palette.White,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    shadowColor: Palette.Black,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  overviewSafeArea: {
+    flex: 1,
+  },
+  overviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  overviewHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  overviewTitle: {
+    fontSize: 18,
+    color: Palette.CustomBlack,
+  },
+  overviewRoutePill: {
+    backgroundColor: Palette.White,
+    borderRadius: 10,
+    marginHorizontal: 20,
+    marginVertical: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: Palette.Black,
+    shadowColor: Palette.Black,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  overviewRouteText: {
+    fontSize: 14,
+    color: Palette.CustomBlack,
+  },
+  overviewScrollContent: {
+    paddingHorizontal: 20,
+  },
+  legCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Palette.LightGray,
+    marginBottom: 20,
+  },
+  legHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Palette.GrayBackground,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+  },
+  legBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 5,
+    backgroundColor: Palette.CustomBlack,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  legBadgeText: {
+    fontSize: 14,
+    color: Palette.White,
+  },
+  legHeaderText: {
+    fontSize: 16,
+    color: Palette.CustomBlack,
+  },
+  legStopsColumn: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  legStopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 20,
+  },
+  legDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Palette.CustomBlack,
+  },
+  legHollowDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: Palette.DarkGray,
+    backgroundColor: Palette.White,
+  },
+  legIntermediateStopText: {
+    fontSize: 16,
+    color: Palette.DarkGray,
+  },
+  legStopText: {
+    fontSize: 16,
+    color: Palette.CustomBlack,
+  },
+  legStopsLine: {
+    width: 1,
+    height: 20,
+    backgroundColor: Palette.LightGray,
+    marginLeft: 4,
+  },
+  legStopsBetweenText: {
+    fontSize: 14,
+    color: Palette.DarkGray,
+  },
+  legDivider: {
+    height: 1,
+    backgroundColor: Palette.LightGray,
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  legStatsRow: {
+    paddingHorizontal: 20,
+  },
+  summaryCard: {
+    backgroundColor: Palette.GrayBackground,
+    borderRadius: 20,
+    padding: 20,
+  },
+  summaryCardFixed: {
+    backgroundColor: Palette.GrayBackground,
+    borderRadius: 20,
+    padding: 20,
+    marginHorizontal: 20,
+    marginVertical: 20,
+    borderWidth: 1,
+    borderColor: Palette.Placeholder,
+  },
+  summaryTitle: {
+    fontSize: 16,
+    color: Palette.CustomBlack,
+    marginBottom: 10,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 5,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: Palette.DarkGray,
+  },
+  summaryValue: {
+    fontSize: 14,
+    color: Palette.CustomBlack,
   },
 });
