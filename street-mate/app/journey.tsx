@@ -18,7 +18,7 @@ import { BlurView } from 'expo-blur';
 import { AppText as Text } from '@/components/app-text';
 import { Palette } from '@/constants/theme';
 
-// Mock journey steps — replace with real navigation/tracking engine output later.
+// Fallback journey steps — used only if no real route data is available (e.g. no routeId passed).
 const mockJourneySteps = [
   {
     type: 'walk',
@@ -40,6 +40,7 @@ const mockJourneySteps = [
   },
 ];
 
+// Fallback stop list — used only if no real route data is available.
 const mockStops = [
   'Pantang Junction',
   'Taxi Rank',
@@ -51,7 +52,7 @@ const mockStops = [
   'Madina',
 ];
 
-// Mock recommended next leg — replace with real routing engine output once this trip ends.
+// Fallback next-trip card — used only when the route has no further legs to pull real data from.
 const mockNextTrip = {
   duration: '10 mins',
   fare: 'GH¢ 4.00',
@@ -66,17 +67,119 @@ const rideOptions = [
   { key: 'bolt', name: 'Bolt', icon: require('@/assets/images/icons/bolt-logo.png') },
 ];
 
+// Same route data as map.tsx — replace both with a shared data source once wired to a real backend.
+const mockAllRoutes = [
+  {
+    id: '1',
+    duration: '35 mins',
+    fare: 'GH¢ 5.00',
+    stops: ['Pantang Junction', 'UPS'],
+    trips: 1,
+    tripDetails: [
+      {
+        stopName: 'UPS',
+        availableTrotro: 'Accra',
+        otherTrotros: 'Legon, Okponglo, Circle, 37, Lapaz, Kasoa, Osu, Spintex',
+        estTime: '35 mins',
+        estFare: 'GH¢ 5.00',
+        availability: 'High',
+        stopsCount: 4,
+        intermediateStops: ['Taxi Rank', 'Adenta Barrier', 'WASS', 'Kenkey House'],
+      },
+    ],
+  },
+  {
+    id: '2',
+    duration: '40 mins',
+    fare: 'GH¢ 9.00',
+    stops: ['Pantang Junction', 'Madina', 'UPS'],
+    trips: 2,
+    tripDetails: [
+      {
+        stopName: 'Madina',
+        availableTrotro: 'Madina',
+        otherTrotros: 'Atomic, Accra, Circle, 37, Lapaz, Kasoa, Osu, Spintex, Okponglo',
+        estTime: '30 mins',
+        estFare: 'GH¢ 5.00',
+        availability: 'High',
+        stopsCount: 6,
+        intermediateStops: ['Taxi Rank', 'Adenta Barrier', 'WASS', 'Kenkey House', 'Ritz Junction', 'Red Co.'],
+      },
+      {
+        stopName: 'UPS',
+        availableTrotro: 'Accra',
+        otherTrotros: 'Circle, Legon, Okponglo, 37, Lapaz, Kasoa, Osu, Spintex',
+        estTime: '10 mins',
+        estFare: 'GH¢ 4.00',
+        availability: 'High',
+        stopsCount: 1,
+        intermediateStops: ['Atomic Junction'],
+      },
+    ],
+  },
+  {
+    id: '3',
+    duration: '1 hr',
+    fare: 'GH¢ 9.50',
+    stops: ['Pantang Junction', 'Atomic', 'UPS'],
+    trips: 2,
+    tripDetails: [
+      {
+        stopName: 'Atomic',
+        availableTrotro: 'Atomic',
+        otherTrotros: 'Legon, Okponglo, Circle, 37, Lapaz, Kasoa, Osu, Spintex',
+        estTime: '45 mins',
+        estFare: 'GH¢ 6.00',
+        availability: 'Medium',
+        stopsCount: 8,
+        intermediateStops: [
+          'Taxi Rank',
+          'Adenta Barrier',
+          'WASS',
+          'Kenkey House',
+          'Ritz Junction',
+          'Red Co.',
+          'Shiashie',
+          '37 Station',
+        ],
+      },
+      {
+        stopName: 'UPS',
+        availableTrotro: 'Accra',
+        otherTrotros: 'Circle, Legon, Okponglo, 37, Lapaz, Kasoa, Osu, Spintex',
+        estTime: '15 mins',
+        estFare: 'GH¢ 3.50',
+        availability: 'High',
+        stopsCount: 2,
+        intermediateStops: ['Airport Junction', 'Ridge'],
+      },
+    ],
+  },
+];
+
 const STEP_ADVANCE_INTERVAL = 6000; // demo-only: auto-advances every 6s
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 const stopWord = (count: number) => (count === 1 ? 'stop' : 'stops');
 
+// Pulls the leading number out of strings like "30 mins" or "1 hr" for use as a mock ETA.
+const parseEtaMinutes = (estTime: string): number => {
+  const match = estTime.match(/(\d+)/);
+  return match ? parseInt(match[1], 10) : 0;
+};
+
+// High beats Medium beats Low — used to summarize overall availability across all legs
+const availabilityRank: Record<string, number> = { High: 2, Medium: 1, Low: 0 };
+const worstAvailability = (values: string[]) =>
+  values.reduce((worst, current) => (availabilityRank[current] < availabilityRank[worst] ? current : worst), values[0]);
+
 export default function JourneyScreen() {
-  const { origin, destination, tripIndex, totalTrips } = useLocalSearchParams<{
+  const { origin, destination, tripIndex, totalTrips, routeId } = useLocalSearchParams<{
     origin?: string;
     destination?: string;
     tripIndex?: string;
     totalTrips?: string;
+    routeId?: string;
   }>();
   const [stepIndex, setStepIndex] = useState(0);
   const [visitedCount, setVisitedCount] = useState(0);
@@ -92,18 +195,103 @@ export default function JourneyScreen() {
   const rideSheetSlide = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const rideSheetOverlayOpacity = useRef(new Animated.Value(0)).current;
 
-  const currentStep = mockJourneySteps[Math.min(stepIndex, mockJourneySteps.length - 1)];
-  const lastStopName = mockStops[mockStops.length - 1];
-  const isLastStop = visitedCount === mockStops.length - 1;
+  const [showTripOverview, setShowTripOverview] = useState(false);
+  const [expandedLegKey, setExpandedLegKey] = useState<string | null>(null);
+  const overviewSlide = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
-  const currentTripIndexNum = Number(tripIndex ?? 0);
+  // Trotro list sheet — same as map.tsx's version
+  const [showTrotroSheet, setShowTrotroSheet] = useState(false);
+  const [trotroSheetData, setTrotroSheetData] = useState<{ availableTrotro: string; otherTrotros: string[] } | null>(
+    null
+  );
+  const trotroSheetSlide = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const trotroSheetOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const [trotroCanScrollUp, setTrotroCanScrollUp] = useState(false);
+  const [trotroCanScrollDown, setTrotroCanScrollDown] = useState(false);
+  const trotroScrollContentHeight = useRef(0);
+  const trotroScrollLayoutHeight = useRef(0);
+
   const totalTripsNum = Number(totalTrips ?? 1);
-  const hasNextTrip = currentTripIndexNum < totalTripsNum - 1;
+  const [activeTripIndex, setActiveTripIndex] = useState(Number(tripIndex ?? 0));
+  const hasNextTrip = activeTripIndex < totalTripsNum - 1;
+
+  // The full route this journey belongs to — used to build per-leg walking/boarding data + the full Trip Overview
+  const activeDetailRoute = mockAllRoutes.find((r) => r.id === routeId) ?? null;
+
+  // The specific leg currently being traveled — drives the instruction card, ETA, and stop list below
+  const currentLegData = activeDetailRoute?.tripDetails[activeTripIndex] ?? null;
+  const legFromStop = activeDetailRoute
+    ? activeTripIndex === 0
+      ? activeDetailRoute.stops[0]
+      : activeDetailRoute.tripDetails[activeTripIndex - 1].stopName
+    : mockStops[0];
+
+  const legStops = currentLegData
+    ? [legFromStop, ...(currentLegData.intermediateStops ?? []), currentLegData.stopName]
+    : mockStops;
+
+  const journeySteps = currentLegData
+    ? [
+        {
+          type: 'walk',
+          title: `Walk to ${legFromStop}`,
+          description: 'Follow the path to get to your bus stop',
+          etaMins: parseEtaMinutes(currentLegData.estTime),
+          stopsAway: legStops.length - 1,
+          icon: require('@/assets/images/icons/walk-outline.png'),
+          arrow: require('@/assets/images/icons/walk-arrow.png'),
+        },
+        {
+          type: 'board',
+          title: `Board a ${currentLegData.availableTrotro} car`,
+          description:
+            'Wait at the roadside for a mate mentioning a car heading in the direction of your destination',
+          etaMins: parseEtaMinutes(currentLegData.estTime),
+          stopsAway: legStops.length - 1,
+          icon: require('@/assets/images/icons/bus.png'),
+          arrow: require('@/assets/images/icons/ride-arrow.png'),
+        },
+      ]
+    : mockJourneySteps;
+
+  const currentStep = journeySteps[Math.min(stepIndex, journeySteps.length - 1)];
+  const lastStopName = legStops[legStops.length - 1];
+  const isLastStop = visitedCount === legStops.length - 1;
+
+  // The upcoming leg (if any) — powers the "Recommended / Start Next Trip" card on arrival
+  const nextLegData = activeDetailRoute?.tripDetails[activeTripIndex + 1] ?? null;
+  const nextTripDisplay =
+    nextLegData && currentLegData
+      ? {
+          duration: nextLegData.estTime,
+          fare: nextLegData.estFare,
+          from: currentLegData.stopName,
+          to: nextLegData.stopName,
+        }
+      : mockNextTrip;
+
+  const overviewLegs = activeDetailRoute
+    ? activeDetailRoute.tripDetails.map((trip, index) => ({
+        from: index === 0 ? activeDetailRoute.stops[0] : activeDetailRoute.tripDetails[index - 1].stopName,
+        to: trip.stopName,
+        stopsCount: trip.stopsCount,
+        intermediateStops: trip.intermediateStops ?? [],
+        estTime: trip.estTime,
+        estFare: trip.estFare,
+        availability: trip.availability,
+        availableTrotro: trip.availableTrotro,
+        otherTrotros: trip.otherTrotros,
+      }))
+    : [];
+
+  const overallAvailability = activeDetailRoute
+    ? worstAvailability(activeDetailRoute.tripDetails.map((t) => t.availability))
+    : 'High';
 
   useEffect(() => {
     const interval = setInterval(() => {
       setStepIndex((prev) => {
-        const next = Math.min(prev + 1, mockJourneySteps.length - 1);
+        const next = Math.min(prev + 1, journeySteps.length - 1);
         if (next !== prev) {
           Animated.sequence([
             Animated.timing(cardOpacity, { toValue: 0, duration: 150, useNativeDriver: true }),
@@ -112,12 +300,13 @@ export default function JourneyScreen() {
         }
         return next;
       });
-      setVisitedCount((prev) => Math.min(prev + 1, mockStops.length - 1));
+      setVisitedCount((prev) => Math.min(prev + 1, legStops.length - 1));
     }, STEP_ADVANCE_INTERVAL);
 
     return () => clearInterval(interval);
+    // Restart the timer whenever the active leg changes, so it plays out that leg's own step count.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeTripIndex, journeySteps.length, legStops.length]);
 
   // Once the mock progress reaches the final stop, show the arrival sheet.
   useEffect(() => {
@@ -152,7 +341,7 @@ export default function JourneyScreen() {
   };
 
   const handleStartNextTrip = () => {
-    // Reset the mock demo so the next leg can play out the same way.
+    setActiveTripIndex((prev) => Math.min(prev + 1, totalTripsNum - 1));
     setHasArrived(false);
     setStepIndex(0);
     setVisitedCount(0);
@@ -161,33 +350,67 @@ export default function JourneyScreen() {
   const openRideOptions = () => {
     setShowRideOptions(true);
     Animated.parallel([
-      Animated.timing(rideSheetOverlayOpacity, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-      Animated.spring(rideSheetSlide, {
-        toValue: 0,
-        useNativeDriver: true,
-        friction: 9,
-        tension: 60,
-      }),
+      Animated.timing(rideSheetOverlayOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.spring(rideSheetSlide, { toValue: 0, useNativeDriver: true, friction: 9, tension: 60 }),
     ]).start();
   };
 
   const closeRideOptions = () => {
     Animated.parallel([
-      Animated.timing(rideSheetOverlayOpacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(rideSheetSlide, {
-        toValue: SCREEN_HEIGHT,
-        duration: 250,
-        useNativeDriver: true,
-      }),
+      Animated.timing(rideSheetOverlayOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(rideSheetSlide, { toValue: SCREEN_HEIGHT, duration: 250, useNativeDriver: true }),
     ]).start(() => setShowRideOptions(false));
+  };
+
+  const openTripOverview = () => {
+    setExpandedLegKey(null);
+    setShowTripOverview(true);
+    Animated.spring(overviewSlide, { toValue: 0, useNativeDriver: true, friction: 9, tension: 60 }).start();
+  };
+
+  const closeTripOverview = () => {
+    Animated.timing(overviewSlide, { toValue: SCREEN_HEIGHT, duration: 250, useNativeDriver: true }).start(() =>
+      setShowTripOverview(false)
+    );
+  };
+
+  const openTrotroSheet = (availableTrotro: string, otherTrotros: string) => {
+    setTrotroSheetData({
+      availableTrotro,
+      otherTrotros: otherTrotros.split(',').map((s) => s.trim()).filter(Boolean),
+    });
+    setShowTrotroSheet(true);
+    Animated.parallel([
+      Animated.timing(trotroSheetOverlayOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.spring(trotroSheetSlide, { toValue: 0, useNativeDriver: true, friction: 9, tension: 60 }),
+    ]).start();
+  };
+
+  const closeTrotroSheet = () => {
+    Animated.parallel([
+      Animated.timing(trotroSheetOverlayOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(trotroSheetSlide, { toValue: SCREEN_HEIGHT, duration: 250, useNativeDriver: true }),
+    ]).start(() => setShowTrotroSheet(false));
+  };
+
+  const evaluateTrotroScrollFades = (offsetY: number) => {
+    const maxScroll = trotroScrollContentHeight.current - trotroScrollLayoutHeight.current;
+    setTrotroCanScrollUp(offsetY > 4);
+    setTrotroCanScrollDown(offsetY < maxScroll - 4);
+  };
+
+  const handleTrotroScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    evaluateTrotroScrollFades(e.nativeEvent.contentOffset.y);
+  };
+
+  const handleTrotroScrollLayout = (e: LayoutChangeEvent) => {
+    trotroScrollLayoutHeight.current = e.nativeEvent.layout.height;
+    evaluateTrotroScrollFades(0);
+  };
+
+  const handleTrotroScrollContentSizeChange = (_width: number, height: number) => {
+    trotroScrollContentHeight.current = height;
+    evaluateTrotroScrollFades(0);
   };
 
   return (
@@ -260,14 +483,14 @@ export default function JourneyScreen() {
 
                 <View style={styles.nextTripCard}>
                   <View style={styles.nextTripTopRow}>
-                    <Text weight="medium" style={styles.nextTripDuration}>{mockNextTrip.duration}</Text>
+                    <Text weight="medium" style={styles.nextTripDuration}>{nextTripDisplay.duration}</Text>
                     <Text weight="medium" style={styles.nextTripFare}>
                       GH¢<Text weight="medium" style={styles.nextTripFareAmount}>
-                        {mockNextTrip.fare.replace('GH¢', '').trim()}
+                        {nextTripDisplay.fare.replace('GH¢', '').trim()}
                       </Text>
                     </Text>
                   </View>
-                  <Text style={styles.nextTripRoute}>{mockNextTrip.from}  →  {mockNextTrip.to}</Text>
+                  <Text style={styles.nextTripRoute}>{nextTripDisplay.from}  →  {nextTripDisplay.to}</Text>
 
                   <View style={styles.nextTripButtonsRow}>
                     <TouchableOpacity style={styles.startNextButton} onPress={handleStartNextTrip}>
@@ -344,7 +567,8 @@ export default function JourneyScreen() {
                 </View>
               </View>
               <Text style={styles.stopsAwayText}>
-                {currentStep.stopsAway} {stopWord(currentStep.stopsAway)} away
+                {Math.max(legStops.length - 1 - visitedCount, 0)}{' '}
+                {stopWord(Math.max(legStops.length - 1 - visitedCount, 0))} away
               </Text>
             </View>
 
@@ -356,10 +580,10 @@ export default function JourneyScreen() {
                 scrollEventThrottle={16}
                 onLayout={handleScrollLayout}
                 onContentSizeChange={handleScrollContentSizeChange}>
-                {mockStops.map((stopName, index) => {
+                {legStops.map((stopName, index) => {
                   const isVisited = index < visitedCount;
                   const isCurrent = index === visitedCount;
-                  const isLast = index === mockStops.length - 1;
+                  const isLast = index === legStops.length - 1;
 
                   return (
                     <View key={stopName}>
@@ -407,7 +631,7 @@ export default function JourneyScreen() {
               <TouchableOpacity style={styles.endButton} onPress={handleEndJourney}>
                 <Text weight="medium" style={styles.endButtonText}>End Journey</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.moreButton}>
+              <TouchableOpacity style={styles.moreButton} onPress={openTripOverview}>
                 <Image
                   source={require('@/assets/images/icons/more-options.png')}
                   style={styles.moreButtonIcon}
@@ -419,7 +643,7 @@ export default function JourneyScreen() {
         )}
       </View>
 
-      {/* Ride options sheet — slides up with a blurred backdrop, same pattern as the sidebar */}
+      {/* Ride options sheet */}
       {showRideOptions && (
         <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
           <Animated.View style={[styles.rideOverlay, { opacity: rideSheetOverlayOpacity }]}>
@@ -435,6 +659,259 @@ export default function JourneyScreen() {
                 <Text weight="medium" style={styles.rideOptionName}>{option.name}</Text>
               </TouchableOpacity>
             ))}
+          </Animated.View>
+        </View>
+      )}
+
+      {/* Trip Overview — full multi-leg view with current + completed leg states */}
+      {showTripOverview && (
+        <Animated.View style={[styles.overviewPanel, { transform: [{ translateY: overviewSlide }] }]}>
+          <SafeAreaView style={styles.overviewSafeArea} edges={[]}>
+            <View style={styles.overviewHeader}>
+              <TouchableOpacity style={styles.overviewHeaderLeft} onPress={closeTripOverview}>
+                <Image
+                  source={require('@/assets/images/icons/chevron-left.png')}
+                  style={styles.backIcon}
+                  contentFit="contain"
+                />
+                <Text weight="medium" style={styles.overviewTitle}>Trip Overview</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.overviewRoutePill}>
+              <Text weight="medium" style={styles.overviewRouteText} numberOfLines={1}>
+                {origin ?? 'Current location'}  →  {destination ?? 'Destination'}
+              </Text>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.overviewScrollContent}>
+              {overviewLegs.map((leg, index) => {
+                const legKey = `${leg.from}-${leg.to}`;
+                const isExpanded = expandedLegKey === legKey;
+                const isCurrentLeg = index === activeTripIndex;
+                const isCompletedLeg = index < activeTripIndex;
+
+                return (
+                  <View
+                    key={legKey}
+                    style={[styles.legCard, isCurrentLeg && styles.legCardActive, isCompletedLeg && styles.legCardCompleted]}>
+                    <View style={[styles.legHeaderRow, isCurrentLeg && styles.legHeaderRowActive]}>
+                      <View style={styles.legHeaderLeft}>
+                        <View
+                          style={[
+                            styles.legBadge,
+                            isCurrentLeg && styles.legBadgeActive,
+                            isCompletedLeg && styles.legBadgeCompleted,
+                          ]}>
+                          {isCompletedLeg ? (
+                            <Image
+                              source={require('@/assets/images/icons/checkmark-circle.png')}
+                              style={styles.legBadgeCheckIcon}
+                              contentFit="contain"
+                              tintColor={Palette.White}
+                            />
+                          ) : (
+                            <Text
+                              weight="semibold"
+                              style={[styles.legBadgeText, isCurrentLeg && styles.legBadgeTextActive]}>
+                              {index + 1}
+                            </Text>
+                          )}
+                        </View>
+                        <Text
+                          weight="semibold"
+                          style={[
+                            styles.legHeaderText,
+                            isCurrentLeg && styles.legHeaderTextActive,
+                            isCompletedLeg && styles.legHeaderTextCompleted,
+                          ]}>
+                          {leg.from}  →  {leg.to}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[styles.legTrotroButton, isCurrentLeg && styles.legTrotroButtonActive]}
+                        onPress={() => openTrotroSheet(leg.availableTrotro, leg.otherTrotros)}>
+                        <Image
+                          source={require('@/assets/images/icons/bus.png')}
+                          style={styles.legTrotroButtonIcon}
+                          contentFit="contain"
+                          tintColor={isCurrentLeg ? Palette.White : undefined}
+                        />
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.legStopsColumn}>
+                      <View style={styles.legStopRow}>
+                        <View style={styles.legDot} />
+                        <Text style={styles.legStopText}>{leg.from}</Text>
+                      </View>
+                      <View style={styles.legStopsLine} />
+
+                      {isExpanded ? (
+                        <>
+                          {leg.intermediateStops.map((stopName, stopIndex) => (
+                            <View key={stopName}>
+                              <TouchableOpacity style={styles.legStopRow} onPress={() => setExpandedLegKey(null)}>
+                                <View style={styles.legHollowDot} />
+                                <Text style={styles.legIntermediateStopText}>{stopName}</Text>
+                              </TouchableOpacity>
+                              {stopIndex < leg.intermediateStops.length - 1 && (
+                                <View style={styles.legStopsLine} />
+                              )}
+                            </View>
+                          ))}
+                        </>
+                      ) : (
+                        <TouchableOpacity style={styles.legStopRow} onPress={() => setExpandedLegKey(legKey)}>
+                          <Text style={styles.legStopsBetweenText}>⋮  {leg.stopsCount} {stopWord(leg.stopsCount)}</Text>
+                        </TouchableOpacity>
+                      )}
+
+                      <View style={styles.legStopsLine} />
+                      <View style={styles.legStopRow}>
+                        <View style={styles.legDot} />
+                        <Text style={styles.legStopText}>{leg.to}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.legDivider} />
+
+                    <View style={[styles.overviewStatsRow2, styles.legStatsRow]}>
+                      <View style={styles.statItem}>
+                        <Image
+                          source={require('@/assets/images/icons/estimated-time.png')}
+                          style={styles.statIcon}
+                          contentFit="contain"
+                        />
+                        <View>
+                          <Text weight="medium" style={styles.statLabel}>Est. Time</Text>
+                          <Text weight="medium" style={styles.statValue}>{leg.estTime}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.statItem}>
+                        <Image
+                          source={require('@/assets/images/icons/estimated-fare.png')}
+                          style={styles.statIcon}
+                          contentFit="contain"
+                        />
+                        <View>
+                          <Text weight="medium" style={styles.statLabel}>Est. Fare</Text>
+                          <Text weight="medium" style={styles.statValue}>{leg.estFare}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.statItem}>
+                        <Image
+                          source={require('@/assets/images/icons/availability-status.png')}
+                          style={styles.statIcon}
+                          contentFit="contain"
+                        />
+                        <View>
+                          <Text weight="medium" style={styles.statLabel}>Availability</Text>
+                          <View style={styles.availabilityRow}>
+                            <View style={styles.availabilityDot} />
+                            <Text weight="medium" style={styles.statValue}>{leg.availability}</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            {activeDetailRoute && (
+              <View style={styles.summaryCardFixed}>
+                <Text weight="semibold" style={styles.summaryTitle}>Trip Summary</Text>
+
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Number of Trips</Text>
+                  <Text weight="medium" style={styles.summaryValue}>{activeDetailRoute.trips}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Estimated Time</Text>
+                  <Text weight="medium" style={styles.summaryValue}>{activeDetailRoute.duration}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Estimated Fare</Text>
+                  <Text weight="medium" style={styles.summaryValue}>{activeDetailRoute.fare}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Availability</Text>
+                  <Text weight="medium" style={styles.summaryValue}>{overallAvailability}</Text>
+                </View>
+              </View>
+            )}
+          </SafeAreaView>
+        </Animated.View>
+      )}
+
+      {/* Trotro list sheet */}
+      {showTrotroSheet && trotroSheetData && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+          <Animated.View style={[styles.trotroOverlay, { opacity: trotroSheetOverlayOpacity }]}>
+            <BlurView intensity={10} tint="dark" style={StyleSheet.absoluteFill} />
+            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeTrotroSheet} />
+          </Animated.View>
+
+          <Animated.View style={[styles.trotroSheet, { transform: [{ translateY: trotroSheetSlide }] }]}>
+            <View style={styles.dragHandle} />
+
+            <Text weight="semibold" style={styles.trotroSheetLabel}>Available Trotro</Text>
+            <View style={styles.trotroChip}>
+              <Image
+                source={require('@/assets/images/icons/bus.png')}
+                style={styles.trotroChipIcon}
+                contentFit="contain"
+              />
+              <Text weight="medium" style={styles.trotroChipText}>{trotroSheetData.availableTrotro}</Text>
+            </View>
+
+            {trotroSheetData.otherTrotros.length > 0 && (
+              <>
+                <Text weight="semibold" style={[styles.trotroSheetLabel, styles.trotroSheetLabelSpaced]}>
+                  Other Trotros on Route
+                </Text>
+                <View style={styles.trotroListWrap}>
+                  <ScrollView
+                    style={styles.trotroListScroll}
+                    showsVerticalScrollIndicator={false}
+                    onScroll={handleTrotroScroll}
+                    scrollEventThrottle={16}
+                    onLayout={handleTrotroScrollLayout}
+                    onContentSizeChange={handleTrotroScrollContentSizeChange}>
+                    {trotroSheetData.otherTrotros.map((name) => (
+                      <View key={name} style={styles.trotroChip}>
+                        <Image
+                          source={require('@/assets/images/icons/bus.png')}
+                          style={styles.trotroChipIcon}
+                          contentFit="contain"
+                        />
+                        <Text weight="medium" style={styles.trotroChipText}>{name}</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+
+                  {trotroCanScrollUp && (
+                    <LinearGradient
+                      colors={[Palette.White, 'rgba(255,255,255,0.6)', 'rgba(255,255,255,0)']}
+                      locations={[0, 0.5, 1]}
+                      style={styles.trotroFadeTop}
+                      pointerEvents="none"
+                    />
+                  )}
+                  {trotroCanScrollDown && (
+                    <LinearGradient
+                      colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.6)', Palette.White]}
+                      locations={[0, 0.5, 1]}
+                      style={styles.trotroFadeBottom}
+                      pointerEvents="none"
+                    />
+                  )}
+                </View>
+              </>
+            )}
           </Animated.View>
         </View>
       )}
@@ -835,7 +1312,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingHorizontal: 20,
     paddingBottom: 20,
-    margin: 20
+    margin: 20,
   },
   rideOptionRow: {
     flexDirection: 'row',
@@ -849,6 +1326,322 @@ const styles = StyleSheet.create({
     borderRadius: 15,
   },
   rideOptionName: {
+    fontSize: 16,
+    color: Palette.CustomBlack,
+  },
+  overviewPanel: {
+    position: 'absolute',
+    top: 60,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Palette.White,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    shadowColor: Palette.Black,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  overviewSafeArea: {
+    flex: 1,
+  },
+  overviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  overviewHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  overviewTitle: {
+    fontSize: 18,
+    color: Palette.CustomBlack,
+  },
+  overviewRoutePill: {
+    backgroundColor: Palette.White,
+    borderRadius: 10,
+    marginHorizontal: 20,
+    marginVertical: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: Palette.Black,
+    shadowColor: Palette.Black,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  overviewRouteText: {
+    fontSize: 14,
+    color: Palette.CustomBlack,
+  },
+  overviewScrollContent: {
+    paddingHorizontal: 20,
+  },
+  legCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Palette.LightGray,
+    marginBottom: 20,
+  },
+  legCardActive: {
+    borderColor: Palette.CustomBlack,
+    borderWidth: 1.5,
+  },
+  legCardCompleted: {
+    opacity: 0.55,
+  },
+  legHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Palette.GrayBackground,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+  },
+  legHeaderRowActive: {
+    backgroundColor: Palette.CustomBlack,
+  },
+  legHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    marginRight: 10,
+  },
+  legTrotroButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Palette.CustomBlack,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  legTrotroButtonActive: {
+    borderColor: Palette.White,
+  },
+  legTrotroButtonIcon: {
+    width: 20,
+    height: 20,
+  },
+  legBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 5,
+    backgroundColor: Palette.CustomBlack,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  legBadgeActive: {
+    backgroundColor: Palette.White,
+  },
+  legBadgeCompleted: {
+    backgroundColor: Palette.Green,
+  },
+  legBadgeCheckIcon: {
+    width: 16,
+    height: 16,
+  },
+  legBadgeText: {
+    fontSize: 14,
+    color: Palette.White,
+  },
+  legBadgeTextActive: {
+    color: Palette.CustomBlack,
+  },
+  legHeaderText: {
+    fontSize: 16,
+    color: Palette.CustomBlack,
+    flexShrink: 1,
+  },
+  legHeaderTextActive: {
+    color: Palette.White,
+  },
+  legHeaderTextCompleted: {
+    textDecorationLine: 'line-through',
+  },
+  legStopsColumn: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  legStopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 20,
+  },
+  legDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Palette.CustomBlack,
+  },
+  legHollowDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: Palette.DarkGray,
+    backgroundColor: Palette.White,
+  },
+  legIntermediateStopText: {
+    fontSize: 16,
+    color: Palette.DarkGray,
+  },
+  legStopText: {
+    fontSize: 16,
+    color: Palette.CustomBlack,
+  },
+  legStopsLine: {
+    width: 1,
+    height: 20,
+    backgroundColor: Palette.LightGray,
+    marginLeft: 4,
+  },
+  legStopsBetweenText: {
+    fontSize: 14,
+    color: Palette.DarkGray,
+  },
+  legDivider: {
+    height: 1,
+    backgroundColor: Palette.LightGray,
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  legStatsRow: {
+    paddingHorizontal: 20,
+  },
+  overviewStatsRow2: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  statIcon: {
+    width: 20,
+    height: 20,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: Palette.DarkGray,
+  },
+  statValue: {
+    fontSize: 16,
+    color: Palette.CustomBlack,
+  },
+  availabilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  availabilityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Palette.Green,
+  },
+  summaryCardFixed: {
+    backgroundColor: Palette.GrayBackground,
+    borderRadius: 20,
+    padding: 20,
+    marginHorizontal: 20,
+    marginVertical: 20,
+    borderWidth: 1,
+    borderColor: Palette.Placeholder,
+  },
+  summaryTitle: {
+    fontSize: 16,
+    color: Palette.CustomBlack,
+    marginBottom: 10,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 5,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: Palette.DarkGray,
+  },
+  summaryValue: {
+    fontSize: 14,
+    color: Palette.CustomBlack,
+  },
+  trotroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  trotroSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: Palette.White,
+    borderRadius: 20,
+    paddingTop: 10,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    margin: 20,
+    maxHeight: '70%',
+  },
+  trotroSheetLabel: {
+    fontSize: 16,
+    color: Palette.CustomBlack,
+    marginBottom: 10,
+  },
+  trotroSheetLabelSpaced: {
+    marginTop: 10,
+  },
+  trotroListWrap: {
+    position: 'relative',
+  },
+  trotroListScroll: {
+    maxHeight: 250,
+  },
+  trotroFadeTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 30,
+  },
+  trotroFadeBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 30,
+  },
+  trotroChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: Palette.LightGray,
+    borderRadius: 15,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    marginBottom: 10,
+  },
+  trotroChipIcon: {
+    width: 20,
+    height: 20,
+  },
+  trotroChipText: {
     fontSize: 16,
     color: Palette.CustomBlack,
   },

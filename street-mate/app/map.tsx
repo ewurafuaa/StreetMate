@@ -562,6 +562,7 @@ export default function MapScreen() {
                     destination,
                     tripIndex: String(currentTripIndex),
                     totalTrips: String(activeDetailRoute?.trips ?? 1),
+                    routeId: activeDetailRoute?.id ?? '',
                   },
                 })
               }>
