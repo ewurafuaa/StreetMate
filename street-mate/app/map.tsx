@@ -1,8 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
-import { Animated, Dimensions, PanResponder, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import {
+  Animated,
+  Dimensions,
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  PanResponder,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { AppText as Text } from '@/components/app-text';
 import { Palette } from '@/constants/theme';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -181,6 +194,18 @@ export default function MapScreen() {
   const tripOpacity = useRef(new Animated.Value(1)).current;
   const overviewSlide = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
+  // Trotro list sheet — slides up when a leg's bus icon is tapped
+  const [showTrotroSheet, setShowTrotroSheet] = useState(false);
+  const [trotroSheetData, setTrotroSheetData] = useState<{ availableTrotro: string; otherTrotros: string[] } | null>(
+    null
+  );
+  const trotroSheetSlide = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const trotroSheetOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const [trotroCanScrollUp, setTrotroCanScrollUp] = useState(false);
+  const [trotroCanScrollDown, setTrotroCanScrollDown] = useState(false);
+  const trotroScrollContentHeight = useRef(0);
+  const trotroScrollLayoutHeight = useRef(0);
+
   const selectedRoute = mockAllRoutes.find((r) => r.id === selectedRouteId) ?? null;
   const recommendedRoute = mockAllRoutes.find((r) => r.recommended);
   const otherRoutes = mockAllRoutes.filter((r) => !r.recommended);
@@ -199,6 +224,8 @@ export default function MapScreen() {
         estTime: trip.estTime,
         estFare: trip.estFare,
         availability: trip.availability,
+        availableTrotro: trip.availableTrotro,
+        otherTrotros: trip.otherTrotros,
       }))
     : [];
 
@@ -307,6 +334,62 @@ export default function MapScreen() {
       duration: 250,
       useNativeDriver: true,
     }).start(() => setShowTripOverview(false));
+  };
+
+  const openTrotroSheet = (availableTrotro: string, otherTrotros: string) => {
+    setTrotroSheetData({
+      availableTrotro,
+      otherTrotros: otherTrotros.split(',').map((s) => s.trim()).filter(Boolean),
+    });
+    setShowTrotroSheet(true);
+    Animated.parallel([
+      Animated.timing(trotroSheetOverlayOpacity, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.spring(trotroSheetSlide, {
+        toValue: 0,
+        useNativeDriver: true,
+        friction: 9,
+        tension: 60,
+      }),
+    ]).start();
+  };
+
+  const closeTrotroSheet = () => {
+    Animated.parallel([
+      Animated.timing(trotroSheetOverlayOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(trotroSheetSlide, {
+        toValue: SCREEN_HEIGHT,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => setShowTrotroSheet(false));
+  };
+
+  const evaluateTrotroScrollFades = (offsetY: number) => {
+    const maxScroll = trotroScrollContentHeight.current - trotroScrollLayoutHeight.current;
+    setTrotroCanScrollUp(offsetY > 4);
+    setTrotroCanScrollDown(offsetY < maxScroll - 4);
+  };
+
+  const handleTrotroScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    evaluateTrotroScrollFades(e.nativeEvent.contentOffset.y);
+  };
+
+  const handleTrotroScrollLayout = (e: LayoutChangeEvent) => {
+    trotroScrollLayoutHeight.current = e.nativeEvent.layout.height;
+    evaluateTrotroScrollFades(0);
+  };
+
+  const handleTrotroScrollContentSizeChange = (_width: number, height: number) => {
+    trotroScrollContentHeight.current = height;
+    evaluateTrotroScrollFades(0);
   };
 
   useEffect(() => {
@@ -550,12 +633,23 @@ export default function MapScreen() {
                 return (
                   <View key={legKey} style={styles.legCard}>
                     <View style={styles.legHeaderRow}>
-                      <View style={styles.legBadge}>
-                        <Text weight="semibold" style={styles.legBadgeText}>{index + 1}</Text>
+                      <View style={styles.legHeaderLeft}>
+                        <View style={styles.legBadge}>
+                          <Text weight="semibold" style={styles.legBadgeText}>{index + 1}</Text>
+                        </View>
+                        <Text weight="semibold" style={styles.legHeaderText}>
+                          {leg.from}  →  {leg.to}
+                        </Text>
                       </View>
-                      <Text weight="semibold" style={styles.legHeaderText}>
-                        {leg.from}  →  {leg.to}
-                      </Text>
+                      <TouchableOpacity
+                        style={styles.legTrotroButton}
+                        onPress={() => openTrotroSheet(leg.availableTrotro, leg.otherTrotros)}>
+                        <Image
+                          source={require('@/assets/images/icons/bus.png')}
+                          style={styles.legTrotroButtonIcon}
+                          contentFit="contain"
+                        />
+                      </TouchableOpacity>
                     </View>
 
                     <View style={styles.legStopsColumn}>
@@ -667,6 +761,75 @@ export default function MapScreen() {
             )}
           </SafeAreaView>
         </Animated.View>
+      )}
+
+      {/* Trotro list sheet — slides up with a blurred backdrop, same pattern as the sidebar */}
+      {showTrotroSheet && trotroSheetData && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+          <Animated.View style={[styles.trotroOverlay, { opacity: trotroSheetOverlayOpacity }]}>
+            <BlurView intensity={10} tint="dark" style={StyleSheet.absoluteFill} />
+            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeTrotroSheet} />
+          </Animated.View>
+
+          <Animated.View style={[styles.trotroSheet, { transform: [{ translateY: trotroSheetSlide }] }]}>
+            <View style={styles.dragHandle} />
+
+            <Text weight="semibold" style={styles.trotroSheetLabel}>Available Trotro</Text>
+            <View style={styles.trotroChip}>
+              <Image
+                source={require('@/assets/images/icons/bus.png')}
+                style={styles.trotroChipIcon}
+                contentFit="contain"
+              />
+              <Text weight="medium" style={styles.trotroChipText}>{trotroSheetData.availableTrotro}</Text>
+            </View>
+
+            {trotroSheetData.otherTrotros.length > 0 && (
+              <>
+                <Text weight="semibold" style={[styles.trotroSheetLabel, styles.trotroSheetLabelSpaced]}>
+                  Other Trotros on Route
+                </Text>
+                <View style={styles.trotroListWrap}>
+                  <ScrollView
+                    style={styles.trotroListScroll}
+                    showsVerticalScrollIndicator={false}
+                    onScroll={handleTrotroScroll}
+                    scrollEventThrottle={16}
+                    onLayout={handleTrotroScrollLayout}
+                    onContentSizeChange={handleTrotroScrollContentSizeChange}>
+                    {trotroSheetData.otherTrotros.map((name) => (
+                      <View key={name} style={styles.trotroChip}>
+                        <Image
+                          source={require('@/assets/images/icons/bus.png')}
+                          style={styles.trotroChipIcon}
+                          contentFit="contain"
+                        />
+                        <Text weight="medium" style={styles.trotroChipText}>{name}</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+
+                  {trotroCanScrollUp && (
+                    <LinearGradient
+                      colors={[Palette.White, 'rgba(255,255,255,0.6)', 'rgba(255,255,255,0)']}
+                      locations={[0, 0.5, 1]}
+                      style={styles.trotroFadeTop}
+                      pointerEvents="none"
+                    />
+                  )}
+                  {trotroCanScrollDown && (
+                    <LinearGradient
+                      colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.6)', Palette.White]}
+                      locations={[0, 0.5, 1]}
+                      style={styles.trotroFadeBottom}
+                      pointerEvents="none"
+                    />
+                  )}
+                </View>
+              </>
+            )}
+          </Animated.View>
+        </View>
       )}
     </View>
   );
@@ -1051,10 +1214,30 @@ const styles = StyleSheet.create({
   legHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'space-between',
     backgroundColor: Palette.GrayBackground,
     paddingVertical: 20,
     paddingHorizontal: 20,
+  },
+  legHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    marginRight: 10,
+  },
+  legTrotroButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Palette.CustomBlack,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  legTrotroButtonIcon: {
+    width: 20,
+    height: 20,
   },
   legBadge: {
     width: 30,
@@ -1071,6 +1254,7 @@ const styles = StyleSheet.create({
   legHeaderText: {
     fontSize: 16,
     color: Palette.CustomBlack,
+    flexShrink: 1,
   },
   legStopsColumn: {
     paddingHorizontal: 20,
@@ -1154,6 +1338,70 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     fontSize: 14,
+    color: Palette.CustomBlack,
+  },
+  trotroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  trotroSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: Palette.White,
+    borderRadius: 20,
+    paddingTop: 10,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    margin: 20,
+    maxHeight: '70%',
+  },
+  trotroSheetLabel: {
+    fontSize: 16,
+    color: Palette.CustomBlack,
+    marginBottom: 10,
+  },
+  trotroSheetLabelSpaced: {
+    marginTop: 10,
+  },
+  trotroListWrap: {
+    position: 'relative',
+  },
+  trotroListScroll: {
+    maxHeight: 250,
+  },
+  trotroFadeTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 30,
+  },
+  trotroFadeBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 30,
+  },
+  trotroChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: Palette.LightGray,
+    borderRadius: 15,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    marginBottom: 10,
+  },
+  trotroChipIcon: {
+    width: 20,
+    height: 20,
+  },
+  trotroChipText: {
+    fontSize: 16,
     color: Palette.CustomBlack,
   },
 });
