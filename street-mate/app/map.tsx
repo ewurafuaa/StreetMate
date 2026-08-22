@@ -469,7 +469,19 @@ export default function MapScreen() {
               </Animated.View>
             </GestureDetector>
 
-            <TouchableOpacity style={styles.startButton}>
+            <TouchableOpacity
+              style={styles.startButton}
+              onPress={() =>
+                router.push({
+                  pathname: '/journey',
+                  params: {
+                    origin,
+                    destination,
+                    tripIndex: String(currentTripIndex),
+                    totalTrips: String(activeDetailRoute?.trips ?? 1),
+                  },
+                })
+              }>
               <Text weight="medium" style={styles.startButtonText}>Start Journey</Text>
             </TouchableOpacity>
           </>
