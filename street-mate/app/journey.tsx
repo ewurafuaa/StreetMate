@@ -1,3 +1,4 @@
+//journey.tsx
 import { useEffect, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
@@ -337,7 +338,7 @@ export default function JourneyScreen() {
   };
 
   const handleEndJourney = () => {
-    router.back();
+    router.replace('/');
   };
 
   const handleStartNextTrip = () => {

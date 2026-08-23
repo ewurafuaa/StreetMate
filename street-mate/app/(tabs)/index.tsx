@@ -1,3 +1,4 @@
+//index.jsx
 import { useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
