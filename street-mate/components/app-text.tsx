@@ -1,4 +1,4 @@
-import { Text as RNText, StyleSheet, TextProps } from 'react-native';
+import { Text as RNText, TextProps } from 'react-native';
 
 type Weight = 'regular' | 'medium' | 'semibold' | 'bold';
 

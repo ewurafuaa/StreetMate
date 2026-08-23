@@ -7,6 +7,7 @@ import { Sidebar } from '@/components/sidebar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Palette } from '@/constants/theme';
 
+
 // Sample data — replace with real trip history later.
 // Leave this as an empty array ([]) to see the "new user" version.
 const recentTrips = [
@@ -463,3 +464,4 @@ const styles = StyleSheet.create({
     height: 30,
   },
 });
+
