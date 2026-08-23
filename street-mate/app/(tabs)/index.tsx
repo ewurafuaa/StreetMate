@@ -1,4 +1,3 @@
-//index.jsx
 import { useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
@@ -8,9 +7,6 @@ import { Sidebar } from '@/components/sidebar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Palette } from '@/constants/theme';
 
-
-// Sample data — replace with real trip history later.
-// Leave this as an empty array ([]) to see the "new user" version.
 const recentTrips = [
   {
     id: '1',
@@ -27,7 +23,7 @@ const recentTrips = [
 ];
 
 const popularDestinations = ['Madina', 'Circle', 'Atomic Junction', 'Achimota'];
-const heroMessages = ["LET'S HIT THE STREETS!", 'YƐN KƆ!'];
+const heroMessages = ["LET'S HIT THE STREETS!", 'YEN KC!'];
 
 export default function HomeScreen() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -37,45 +33,27 @@ export default function HomeScreen() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      // Slide current text out to the left while fading
       Animated.parallel([
-        Animated.timing(slideAnim, {
-          toValue: -30,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
+        Animated.timing(slideAnim, { toValue: -30, duration: 300, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
       ]).start(() => {
-        // Swap to the next message, position it off-screen to the right
         setMessageIndex((prev) => (prev + 1) % heroMessages.length);
         slideAnim.setValue(30);
 
-        // Slide the new text in from the right while fading in
         Animated.parallel([
-          Animated.timing(slideAnim, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }),
+          Animated.timing(slideAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+          Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
         ]).start();
       });
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [slideAnim, fadeAnim]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header + Hero card — static, does not scroll */}
+      {/* Header — stays static */}
       <View style={styles.staticHeader}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -102,7 +80,13 @@ export default function HomeScreen() {
             />
           </TouchableOpacity>
         </View>
+      </View>
 
+      {/* Everything below the header — scrollable, hero card included */}
+      <ScrollView
+        style={styles.scrollArea}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
         <ImageBackground
           source={require('@/assets/images/hero-card.png')}
           style={styles.heroCard}
@@ -131,13 +115,7 @@ export default function HomeScreen() {
             />
           </TouchableOpacity>
         </ImageBackground>
-      </View>
 
-      {/* Everything below — scrollable */}
-      <ScrollView
-        style={styles.scrollArea}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
         {/* Recent Trips — hidden entirely when there are none */}
         {recentTrips.length > 0 && (
           <View style={styles.section}>
@@ -404,7 +382,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   destinationTextGroup: {
-    flexShrink: 0,
+    flexShrink: 1,
   },
   destinationName: {
     fontSize: 16,
@@ -465,4 +443,3 @@ const styles = StyleSheet.create({
     height: 30,
   },
 });
-

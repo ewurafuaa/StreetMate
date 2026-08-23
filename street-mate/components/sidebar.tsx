@@ -1,4 +1,5 @@
 //sidebar.tsx
+import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
@@ -49,6 +50,20 @@ export function Sidebar({ visible, onClose, activeKey = 'home', onSelect }: Side
     // Simple approach: only skip pointer events, keep mounted for smooth animation.
   }
 
+  const handleMenuPress = (key: string) => {
+    onClose();
+    onSelect?.(key);
+
+    if (key === 'recent') {
+      router.push('/recent-trips');
+    }
+    // Add more routes here as you build them, e.g.:
+    // if (key === 'saved') router.push('/saved-places');
+    // if (key === 'routehub') router.push('/route-hub');
+    // if (key === 'tips') router.push('/tips');
+    // if (key === 'about') router.push('/about');
+  };
+
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents={visible ? 'auto' : 'none'}>
       <Animated.View style={[styles.overlay, { opacity: overlayAnim }]}>
@@ -69,7 +84,7 @@ export function Sidebar({ visible, onClose, activeKey = 'home', onSelect }: Side
               <TouchableOpacity
                 key={item.key}
                 style={[styles.menuItem, isActive && styles.menuItemActive]}
-                onPress={() => onSelect?.(item.key)}>
+                onPress={() => handleMenuPress(item.key)}>
                 <Image source={item.icon} style={styles.menuIcon} contentFit="contain" />
                 <Text weight={isActive ? 'medium' : 'regular'} style={styles.menuLabel}>
                   {item.label}
