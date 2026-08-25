@@ -187,7 +187,7 @@ export default function JourneyScreen() {
   const [hasArrived, setHasArrived] = useState(false);
   const cardOpacity = useRef(new Animated.Value(1)).current;
 
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+    const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -198,14 +198,14 @@ export default function JourneyScreen() {
     );
     loop.start();
     return () => loop.stop();
-  }, []);
+  }, [pulseAnim]);
   
   const pulseFadeIn = useRef(new Animated.Value(0)).current; // fades the newly-eligible row in smoothly
 
   useEffect(() => {
     pulseFadeIn.setValue(0);
     Animated.timing(pulseFadeIn, { toValue: 1, duration: 400, useNativeDriver: true }).start();
-  }, [visitedCount]);
+  }, [visitedCount, pulseFadeIn]);
 
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);

@@ -1,11 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { Animated, Dimensions, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText as Text } from '@/components/app-text';
 import { Palette } from '@/constants/theme';
-import { useRef } from 'react';
 
 // Mock trip history — replace with real stored trip data later.
 const recentTripsData = [
