@@ -7,7 +7,9 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SavedPlacesProvider } from '@/contexts/saved-places';
 import 'react-native-reanimated';
+
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -49,6 +51,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.flexFill}>
+      <SavedPlacesProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -59,9 +62,11 @@ export default function RootLayout() {
           <Stack.Screen name="recent-trips" options={{ headerShown: false, presentation: 'card' }} />
           <Stack.Screen name="saved-places" options={{ headerShown: false, presentation: 'card' }} />
           <Stack.Screen name="add-place" options={{ headerShown: false, presentation: 'card' }} />
+          <Stack.Screen name="set-location" options={{ headerShown: false, presentation: 'card' }} />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
+      </SavedPlacesProvider>
     </GestureHandlerRootView>
   );
 }

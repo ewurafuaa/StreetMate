@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +8,14 @@ import { Palette } from '@/constants/theme';
 
 export default function AddPlaceScreen() {
   const [query, setQuery] = useState('');
+  const { id, mode } = useLocalSearchParams<{ id?: string; mode?: string }>();
+
+  const handleSetLocationOnMap = () => {
+    router.push({
+      pathname: '/set-location',
+      params: id ? { id, mode: mode ?? 'location' } : {},
+    });
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -19,7 +27,7 @@ export default function AddPlaceScreen() {
             contentFit="contain"
           />
         </TouchableOpacity>
-        <Text weight="medium" style={styles.headerTitle}>Add a Place</Text>
+        <Text weight="medium" style={styles.headerTitle}>Find Location</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -50,7 +58,7 @@ export default function AddPlaceScreen() {
 
       <View style={styles.divider} />
 
-      <TouchableOpacity style={styles.row}>
+      <TouchableOpacity style={styles.row} onPress={handleSetLocationOnMap}>
         <Image
           source={require('@/assets/images/icons/map-pinned.png')}
           style={styles.rowIcon}
