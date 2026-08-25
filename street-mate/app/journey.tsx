@@ -199,6 +199,13 @@ export default function JourneyScreen() {
     loop.start();
     return () => loop.stop();
   }, []);
+  
+  const pulseFadeIn = useRef(new Animated.Value(0)).current; // fades the newly-eligible row in smoothly
+
+  useEffect(() => {
+    pulseFadeIn.setValue(0);
+    Animated.timing(pulseFadeIn, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+  }, [visitedCount]);
 
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
@@ -590,8 +597,9 @@ export default function JourneyScreen() {
 
             <View style={styles.stopsScrollWrap}>
               <ScrollView
-                style={styles.stopsScroll}
+                style={legStops.length > 5 ? styles.stopsScroll : styles.stopsScrollUnbounded}
                 showsVerticalScrollIndicator={false}
+                scrollEnabled={legStops.length > 5}
                 onScroll={handleScroll}
                 scrollEventThrottle={16}
                 onLayout={handleScrollLayout}
@@ -605,21 +613,32 @@ export default function JourneyScreen() {
                     return (
                       <View key={stopName}>
                         <View style={styles.stopRow}>
-                          <Animated.View
-                            style={[
-                              styles.stopDot,
-                              (isVisited || isCurrent) && styles.stopDotFilled,
-                              { opacity: isNextUpcoming ? pulseAnim : 1 },
-                            ]}
-                          />
-                          <Animated.Text
-                            style={[
-                              styles.stopText,
-                              !isVisited && !isCurrent && styles.stopTextUpcoming,
-                              { opacity: isNextUpcoming ? pulseAnim : 1 },
-                            ]}>
-                            {stopName}
-                          </Animated.Text>
+                          {isVisited || isCurrent ? (
+                            <View style={[styles.stopDot, styles.stopDotFilled]} />
+                          ) : (
+                            <Animated.View
+                              style={[
+                                styles.stopDot,
+                                isNextUpcoming && {
+                                  opacity: Animated.multiply(pulseAnim, pulseFadeIn),
+                                },
+                              ]}
+                            />
+                          )}
+                          {isVisited || isCurrent ? (
+                            <Text style={styles.stopText}>{stopName}</Text>
+                          ) : (
+                            <Animated.Text
+                              style={[
+                                styles.stopText,
+                                styles.stopTextUpcoming,
+                                isNextUpcoming && {
+                                  opacity: Animated.multiply(pulseAnim, pulseFadeIn),
+                                },
+                              ]}>
+                              {stopName}
+                            </Animated.Text>
+                          )}
                         </View>
                         {!isLast && <View style={styles.stopLine} />}
                       </View>
@@ -1116,6 +1135,9 @@ const styles = StyleSheet.create({
   },
   stopsScroll: {
     maxHeight: 180,
+  },
+    stopsScrollUnbounded: {
+    maxHeight: undefined,
   },
   fadeTop: {
     position: 'absolute',

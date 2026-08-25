@@ -560,7 +560,7 @@ export default function MapScreen() {
                   params: {
                     origin,
                     destination,
-                    tripIndex: String(currentTripIndex),
+                    tripIndex: '0',
                     totalTrips: String(activeDetailRoute?.trips ?? 1),
                     routeId: activeDetailRoute?.id ?? '',
                   },
