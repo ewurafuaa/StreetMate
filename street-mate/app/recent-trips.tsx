@@ -165,42 +165,55 @@ export default function RecentTripsScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {sections.map((section) => (
-          <View key={section.title} style={styles.section}>
-            <Text weight="semibold" style={styles.sectionTitle}>{section.title}</Text>
+      {recentTripsData.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Image
+            source={require('@/assets/images/icons/bus.png')}
+            style={styles.emptyStateIcon}
+            contentFit="contain"
+            tintColor={Palette.LightGray}
+          />
+          <Text weight="medium" style={styles.emptyStateTitle}>No Recent Trips</Text>
+          <Text style={styles.emptyStateSubtitle}>Your recent trips will appear here.</Text>
+        </View>
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {sections.map((section) => (
+            <View key={section.title} style={styles.section}>
+              <Text weight="semibold" style={styles.sectionTitle}>{section.title}</Text>
 
-            {section.trips.map((trip) => (
-              <TouchableOpacity key={trip.id} style={styles.tripCard} onPress={() => openTripOverview(trip.id)}>
-                <View style={styles.tripTopRow}>
-                  <Text weight="medium" style={styles.tripDuration}>{trip.duration}</Text>
-                  <Text weight="medium" style={styles.tripFare}>
-                    GH¢<Text weight="medium" style={styles.tripFareAmount}>
-                      {trip.fare.replace('GH¢', '').trim()}
+              {section.trips.map((trip) => (
+                <TouchableOpacity key={trip.id} style={styles.tripCard} onPress={() => openTripOverview(trip.id)}>
+                  <View style={styles.tripTopRow}>
+                    <Text weight="medium" style={styles.tripDuration}>{trip.duration}</Text>
+                    <Text weight="medium" style={styles.tripFare}>
+                      GH¢<Text weight="medium" style={styles.tripFareAmount}>
+                        {trip.fare.replace('GH¢', '').trim()}
+                      </Text>
                     </Text>
-                  </Text>
-                </View>
-
-                <Text numberOfLines={1} style={styles.tripStops}>
-                  {trip.stops.join('  →  ')}
-                </Text>
-
-                <View style={styles.tripBottomRow}>
-                  <View style={styles.tripCountGroup}>
-                    <Image
-                      source={require('@/assets/images/icons/trip-icon.png')}
-                      style={styles.tripCountIcon}
-                      contentFit="contain"
-                    />
-                    <Text style={styles.tripCountText}>{trip.tripsCount} {tripWord(trip.tripsCount)}</Text>
                   </View>
-                  <Text style={styles.tripDateText}>{trip.dateLabel} · {trip.time}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ))}
-      </ScrollView>
+
+                  <Text numberOfLines={1} style={styles.tripStops}>
+                    {trip.stops.join('  →  ')}
+                  </Text>
+
+                  <View style={styles.tripBottomRow}>
+                    <View style={styles.tripCountGroup}>
+                      <Image
+                        source={require('@/assets/images/icons/trip-icon.png')}
+                        style={styles.tripCountIcon}
+                        contentFit="contain"
+                      />
+                      <Text style={styles.tripCountText}>{trip.tripsCount} {tripWord(trip.tripsCount)}</Text>
+                    </View>
+                    <Text style={styles.tripDateText}>{trip.dateLabel} · {trip.time}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ))}
+        </ScrollView>
+      )}
 
       {/* Trip Overview — same sliding panel pattern used in map.tsx / journey.tsx */}
       {selectedTrip && (
@@ -373,6 +386,28 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 20,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+    paddingBottom: 100,
+  },
+  emptyStateIcon: {
+    width: 60,
+    height: 60,
+    marginBottom: 20,
+  },
+  emptyStateTitle: {
+    fontSize: 24,
+    color: Palette.LightGray,
+    marginBottom: 5,
+  },
+  emptyStateSubtitle: {
+    fontSize: 16,
+    color: Palette.LightGray,
+    textAlign: 'center',
   },
   section: {
     marginBottom: 20,
