@@ -57,6 +57,8 @@ export default function RootLayout() {
           <Stack.Screen name="map" options={{ headerShown: false, presentation: 'card' }} />
           <Stack.Screen name="journey" options={{ headerShown: false, presentation: 'card' }} />
           <Stack.Screen name="recent-trips" options={{ headerShown: false, presentation: 'card' }} />
+          <Stack.Screen name="saved-places" options={{ headerShown: false, presentation: 'card' }} />
+          <Stack.Screen name="add-place" options={{ headerShown: false, presentation: 'card' }} />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
