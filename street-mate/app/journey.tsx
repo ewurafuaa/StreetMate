@@ -187,6 +187,19 @@ export default function JourneyScreen() {
   const [hasArrived, setHasArrived] = useState(false);
   const cardOpacity = useRef(new Animated.Value(1)).current;
 
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 0.5, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
   const scrollContentHeight = useRef(0);
@@ -583,33 +596,35 @@ export default function JourneyScreen() {
                 scrollEventThrottle={16}
                 onLayout={handleScrollLayout}
                 onContentSizeChange={handleScrollContentSizeChange}>
-                {legStops.map((stopName, index) => {
-                  const isVisited = index < visitedCount;
-                  const isCurrent = index === visitedCount;
-                  const isLast = index === legStops.length - 1;
+                  {legStops.map((stopName, index) => {
+                    const isVisited = index < visitedCount;
+                    const isCurrent = index === visitedCount;
+                    const isNextUpcoming = index === visitedCount + 1;
+                    const isLast = index === legStops.length - 1;
 
-                  return (
-                    <View key={stopName}>
-                      <View style={styles.stopRow}>
-                        <View
-                          style={[
-                            styles.stopDot,
-                            (isVisited || isCurrent) && styles.stopDotFilled,
-                          ]}
-                        />
-                        <Text
-                          weight={isCurrent ? 'regular' : 'regular'}
-                          style={[
-                            styles.stopText,
-                            !isVisited && !isCurrent && styles.stopTextUpcoming,
-                          ]}>
-                          {stopName}
-                        </Text>
+                    return (
+                      <View key={stopName}>
+                        <View style={styles.stopRow}>
+                          <Animated.View
+                            style={[
+                              styles.stopDot,
+                              (isVisited || isCurrent) && styles.stopDotFilled,
+                              { opacity: isNextUpcoming ? pulseAnim : 1 },
+                            ]}
+                          />
+                          <Animated.Text
+                            style={[
+                              styles.stopText,
+                              !isVisited && !isCurrent && styles.stopTextUpcoming,
+                              { opacity: isNextUpcoming ? pulseAnim : 1 },
+                            ]}>
+                            {stopName}
+                          </Animated.Text>
+                        </View>
+                        {!isLast && <View style={styles.stopLine} />}
                       </View>
-                      {!isLast && <View style={styles.stopLine} />}
-                    </View>
-                  );
-                })}
+                    );
+                  })}
               </ScrollView>
 
               {canScrollUp && (
