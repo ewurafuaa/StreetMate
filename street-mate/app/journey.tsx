@@ -198,6 +198,7 @@ export default function JourneyScreen() {
 
   const [showTripOverview, setShowTripOverview] = useState(false);
   const [expandedLegKey, setExpandedLegKey] = useState<string | null>(null);
+  const [isArrivalPreview, setIsArrivalPreview] = useState(false);
   const overviewSlide = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   // Trotro list sheet — same as map.tsx's version
@@ -363,8 +364,9 @@ export default function JourneyScreen() {
     ]).start(() => setShowRideOptions(false));
   };
 
-  const openTripOverview = () => {
+  const openTripOverview = (arrivalPreview = false) => {
     setExpandedLegKey(null);
+    setIsArrivalPreview(arrivalPreview);
     setShowTripOverview(true);
     Animated.spring(overviewSlide, { toValue: 0, useNativeDriver: true, friction: 9, tension: 60 }).start();
   };
@@ -497,7 +499,7 @@ export default function JourneyScreen() {
                     <TouchableOpacity style={styles.startNextButton} onPress={handleStartNextTrip}>
                       <Text style={styles.startNextButtonText}>Start Next Trip</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.nextTripMoreButton}>
+                    <TouchableOpacity style={styles.nextTripMoreButton} onPress={() => openTripOverview(true)}>
                       <Image
                         source={require('@/assets/images/icons/more-options.png')}
                         style={styles.moreButtonIcon}
@@ -632,7 +634,7 @@ export default function JourneyScreen() {
               <TouchableOpacity style={styles.endButton} onPress={handleEndJourney}>
                 <Text weight="medium" style={styles.endButtonText}>End Journey</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.moreButton} onPress={openTripOverview}>
+              <TouchableOpacity style={styles.moreButton} onPress={() => openTripOverview(false)}>
                 <Image
                   source={require('@/assets/images/icons/more-options.png')}
                   style={styles.moreButtonIcon}
@@ -689,8 +691,8 @@ export default function JourneyScreen() {
               {overviewLegs.map((leg, index) => {
                 const legKey = `${leg.from}-${leg.to}`;
                 const isExpanded = expandedLegKey === legKey;
-                const isCurrentLeg = index === activeTripIndex;
-                const isCompletedLeg = index < activeTripIndex;
+                const isCurrentLeg = !isArrivalPreview && index === activeTripIndex;
+                const isCompletedLeg = isArrivalPreview ? index <= activeTripIndex : index < activeTripIndex;
 
                 return (
                   <View
@@ -724,7 +726,6 @@ export default function JourneyScreen() {
                           style={[
                             styles.legHeaderText,
                             isCurrentLeg && styles.legHeaderTextActive,
-                            isCompletedLeg && styles.legHeaderTextCompleted,
                           ]}>
                           {leg.from}  →  {leg.to}
                         </Text>
@@ -1466,9 +1467,6 @@ const styles = StyleSheet.create({
   },
   legHeaderTextActive: {
     color: Palette.White,
-  },
-  legHeaderTextCompleted: {
-    textDecorationLine: 'line-through',
   },
   legStopsColumn: {
     paddingHorizontal: 20,
