@@ -60,6 +60,9 @@ export function Sidebar({ visible, onClose, activeKey = 'home', onSelect }: Side
     if (key === 'saved') {
       router.push('/saved-places');
     }
+    if (key === 'routehub') {
+      router.push('/route-hub');
+    }
     // Add more routes here as you build them, e.g.:
     // if (key === 'saved') router.push('/saved-places');
     // if (key === 'routehub') router.push('/route-hub');

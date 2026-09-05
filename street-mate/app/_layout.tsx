@@ -1,5 +1,5 @@
 //app/_layout.tsx
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router/react-navigation';
 import { Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold, useFonts } from '@expo-google-fonts/poppins';
 import { Image } from 'expo-image';
 import { Stack } from 'expo-router';
@@ -63,6 +63,7 @@ export default function RootLayout() {
           <Stack.Screen name="saved-places" options={{ headerShown: false, presentation: 'card' }} />
           <Stack.Screen name="add-place" options={{ headerShown: false, presentation: 'card' }} />
           <Stack.Screen name="set-location" options={{ headerShown: false, presentation: 'card' }} />
+          <Stack.Screen name="route-hub" options={{ headerShown: false, presentation: 'card' }} />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>

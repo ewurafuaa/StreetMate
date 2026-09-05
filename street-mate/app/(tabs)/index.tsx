@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { Animated, ScrollView, StyleSheet, TouchableOpacity, View, ImageBackground } from 'react-native';
+import { Animated, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { AppText as Text } from '@/components/app-text';
 import { Sidebar } from '@/components/sidebar';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -87,10 +87,8 @@ export default function HomeScreen() {
         style={styles.scrollArea}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        <ImageBackground
-          source={require('@/assets/images/hero-card.png')}
-          style={styles.heroCard}
-          imageStyle={styles.heroCardImage}>
+        <View style={styles.heroCard}>
+          <Image source={require('@/assets/images/hero-card.png')} style={styles.heroCardImage} contentFit="cover" priority="high" cachePolicy="memory-disk" transition={150}/>
           <Animated.Text
             style={[
               styles.heroHeading,
@@ -114,7 +112,7 @@ export default function HomeScreen() {
               contentFit="contain"
             />
           </TouchableOpacity>
-        </ImageBackground>
+        </View>
 
         {/* Recent Trips — hidden entirely when there are none */}
         {recentTrips.length > 0 && (
@@ -269,13 +267,15 @@ const styles = StyleSheet.create({
     height: 32,
   },
   heroCard: {
-    borderRadius: 20,
-    padding: 20,
-    marginTop: 10,
-    marginBottom: 10,
-    overflow: 'hidden',
+  borderRadius: 20,
+  padding: 20,
+  marginTop: 10,
+  marginBottom: 10,
+  overflow: 'hidden',
+  position: 'relative',
   },
   heroCardImage: {
+    ...StyleSheet.absoluteFillObject,
     borderRadius: 24,
   },
   heroHeading: {
