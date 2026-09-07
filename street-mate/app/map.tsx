@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import {
@@ -189,18 +189,18 @@ export default function MapScreen() {
   const [currentTripIndex, setCurrentTripIndex] = useState(0);
   const [showTripOverview, setShowTripOverview] = useState(false);
   const [expandedLegKey, setExpandedLegKey] = useState<string | null>(null);
-  const expandAnim = useRef(new Animated.Value(1)).current; // 1 = expanded, 0 = collapsed
-  const tripSlide = useRef(new Animated.Value(0)).current;
-  const tripOpacity = useRef(new Animated.Value(1)).current;
-  const overviewSlide = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const [expandAnim] = useState(() => new Animated.Value(1)); // 1 = expanded, 0 = collapsed
+  const [tripSlide] = useState(() => new Animated.Value(0));
+  const [tripOpacity] = useState(() => new Animated.Value(1));
+  const [overviewSlide] = useState(() => new Animated.Value(SCREEN_HEIGHT));
 
   // Trotro list sheet — slides up when a leg's bus icon is tapped
   const [showTrotroSheet, setShowTrotroSheet] = useState(false);
   const [trotroSheetData, setTrotroSheetData] = useState<{ availableTrotro: string; otherTrotros: string[] } | null>(
     null
   );
-  const trotroSheetSlide = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  const trotroSheetOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const [trotroSheetSlide] = useState(() => new Animated.Value(SCREEN_HEIGHT));
+  const [trotroSheetOverlayOpacity] = useState(() => new Animated.Value(0));
   const [trotroCanScrollUp, setTrotroCanScrollUp] = useState(false);
   const [trotroCanScrollDown, setTrotroCanScrollDown] = useState(false);
   const trotroScrollContentHeight = useRef(0);
@@ -247,6 +247,11 @@ export default function MapScreen() {
     setSelectedRouteId(null);
     setCurrentTripIndex(0);
     setActiveTab(tab);
+
+    // Re-expand "Other Routes" when leaving the All Routes tab, where it can be dragged closed.
+    if (tab !== 'all' && !otherRoutesExpanded) {
+      animateTo(true);
+    }
   };
 
   const selectRoute = (routeId: string) => {
@@ -303,7 +308,7 @@ export default function MapScreen() {
       runOnJS(handleTripSwipeEnd)(event.translationX);
     });
 
-  const panResponder = useRef(
+  const [panResponder] = useState(() =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 5,
@@ -315,7 +320,7 @@ export default function MapScreen() {
         }
       },
     })
-  ).current;
+  );
 
   const openTripOverview = () => {
     setExpandedLegKey(null);
@@ -391,13 +396,6 @@ export default function MapScreen() {
     trotroScrollContentHeight.current = height;
     evaluateTrotroScrollFades(0);
   };
-
-  useEffect(() => {
-    if (activeTab !== 'all' && !otherRoutesExpanded) {
-      animateTo(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
 
   return (
     <View style={styles.container}>
@@ -836,13 +834,23 @@ export default function MapScreen() {
   );
 }
 
+// Local replacement for StyleSheet.absoluteFillObject, which is missing from the
+// current type definitions. Same four properties, spread into styles below.
+const fillParent = {
+  position: 'absolute' as const,
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Palette.GrayBackground,
   },
   mapPlaceholder: {
-    ...StyleSheet.absoluteFillObject,
+    ...fillParent,
     backgroundColor: Palette.GrayBackground,
   },
   routeLine: {
@@ -1342,7 +1350,7 @@ const styles = StyleSheet.create({
     color: Palette.CustomBlack,
   },
   trotroOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...fillParent,
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
   trotroSheet: {

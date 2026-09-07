@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import {
@@ -36,15 +36,15 @@ export default function SetLocationScreen() {
   const [showNameStep, setShowNameStep] = useState(false);
   const [placeName, setPlaceName] = useState('');
   const { addPlace, updatePlace } = useSavedPlaces();
-  const dragDistance = useRef(0);
-  const sheetSlide = useRef(new Animated.Value(300)).current;
-  const nameOpacity = useRef(new Animated.Value(1)).current;
-  const nameStepSlide = useRef(new Animated.Value(300)).current;
-  const nameOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const [sheetSlide] = useState(() => new Animated.Value(300));
+  const [nameOpacity] = useState(() => new Animated.Value(1));
+  const [nameStepSlide] = useState(() => new Animated.Value(300));
+  const [nameOverlayOpacity] = useState(() => new Animated.Value(0));
 
-  useState(() => {
+  // Slide the location sheet up once, on mount.
+  useEffect(() => {
     Animated.spring(sheetSlide, { toValue: 0, useNativeDriver: true, friction: 9, tension: 60 }).start();
-  });
+  }, [sheetSlide]);
 
   const updateLocationName = (nextIndex: number) => {
     if (nextIndex === locationIndex) return;
@@ -55,23 +55,19 @@ export default function SetLocationScreen() {
     setLocationIndex(nextIndex);
   };
 
-  const panResponder = useRef(
+  const [panResponder] = useState(() =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) =>
         Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5,
       onPanResponderMove: (_, gestureState) => {
         const totalDrag = Math.abs(gestureState.dx) + Math.abs(gestureState.dy);
-        dragDistance.current = totalDrag;
         const steps = Math.floor(totalDrag / DRAG_DISTANCE_PER_LOCATION);
         const nextIndex = steps % nearbyLocations.length;
         updateLocationName(nextIndex);
       },
-      onPanResponderRelease: () => {
-        dragDistance.current = 0;
-      },
     })
-  ).current;
+  );
 
   const handleConfirmLocation = () => {
     // Editing an existing place's location: just update it and go
@@ -96,7 +92,7 @@ export default function SetLocationScreen() {
     ]).start(() => setShowNameStep(false));
   };
 
-    const nameSheetPanResponder = useRef(
+  const [nameSheetPanResponder] = useState(() =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 8 && Math.abs(gestureState.dx) < 20,
@@ -118,7 +114,7 @@ export default function SetLocationScreen() {
         }
       },
     })
-  ).current;
+  );
 
   const handleSave = () => {
     if (!placeName.trim()) return;
@@ -226,25 +222,35 @@ export default function SetLocationScreen() {
   );
 }
 
+// Local replacement for StyleSheet.absoluteFillObject, which is missing from the
+// current type definitions. Same four properties, spread into styles below.
+const fillParent = {
+  position: 'absolute' as const,
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Palette.GrayBackground,
   },
   mapPlaceholder: {
-    ...StyleSheet.absoluteFillObject,
+    ...fillParent,
     backgroundColor: Palette.GrayBackground,
   },
   centerPinWrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...fillParent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   nameOverlayBlur: {
-    ...StyleSheet.absoluteFillObject,
+    ...fillParent,
   },
   nameOverlayTint: {
-    ...StyleSheet.absoluteFillObject,
+    ...fillParent,
     backgroundColor: 'rgba(0,0,0,0.35)',
   },
   centerPinOuter: {
@@ -344,8 +350,8 @@ const styles = StyleSheet.create({
     color: Palette.White,
     fontSize: 16,
   },
-    nameSheetOverlay: {
-    ...StyleSheet.absoluteFillObject,
+  nameSheetOverlay: {
+    ...fillParent,
     justifyContent: 'flex-end',
   },
   nameSheet: {

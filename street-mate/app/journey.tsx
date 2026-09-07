@@ -158,12 +158,11 @@ const mockAllRoutes = [
   },
 ];
 
-const STEP_ADVANCE_INTERVAL = 6000; // demo-only: auto-advances every 6s
+const STEP_ADVANCE_INTERVAL = 6000; 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 const stopWord = (count: number) => (count === 1 ? 'stop' : 'stops');
 
-// Pulls the leading number out of strings like "30 mins" or "1 hr" for use as a mock ETA.
 const parseEtaMinutes = (estTime: string): number => {
   const match = estTime.match(/(\d+)/);
   return match ? parseInt(match[1], 10) : 0;
@@ -185,9 +184,9 @@ export default function JourneyScreen() {
   const [stepIndex, setStepIndex] = useState(0);
   const [visitedCount, setVisitedCount] = useState(0);
   const [hasArrived, setHasArrived] = useState(false);
-  const cardOpacity = useRef(new Animated.Value(1)).current;
+  const [cardOpacity] = useState(() => new Animated.Value(1));
 
-    const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [pulseAnim] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -199,8 +198,8 @@ export default function JourneyScreen() {
     loop.start();
     return () => loop.stop();
   }, [pulseAnim]);
-  
-  const pulseFadeIn = useRef(new Animated.Value(0)).current; // fades the newly-eligible row in smoothly
+
+  const [pulseFadeIn] = useState(() => new Animated.Value(0)); // fades the newly-eligible row in smoothly
 
   useEffect(() => {
     pulseFadeIn.setValue(0);
@@ -213,21 +212,21 @@ export default function JourneyScreen() {
   const scrollLayoutHeight = useRef(0);
 
   const [showRideOptions, setShowRideOptions] = useState(false);
-  const rideSheetSlide = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  const rideSheetOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const [rideSheetSlide] = useState(() => new Animated.Value(SCREEN_HEIGHT));
+  const [rideSheetOverlayOpacity] = useState(() => new Animated.Value(0));
 
   const [showTripOverview, setShowTripOverview] = useState(false);
   const [expandedLegKey, setExpandedLegKey] = useState<string | null>(null);
   const [isArrivalPreview, setIsArrivalPreview] = useState(false);
-  const overviewSlide = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const [overviewSlide] = useState(() => new Animated.Value(SCREEN_HEIGHT));
 
   // Trotro list sheet — same as map.tsx's version
   const [showTrotroSheet, setShowTrotroSheet] = useState(false);
   const [trotroSheetData, setTrotroSheetData] = useState<{ availableTrotro: string; otherTrotros: string[] } | null>(
     null
   );
-  const trotroSheetSlide = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  const trotroSheetOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const [trotroSheetSlide] = useState(() => new Animated.Value(SCREEN_HEIGHT));
+  const [trotroSheetOverlayOpacity] = useState(() => new Animated.Value(0));
   const [trotroCanScrollUp, setTrotroCanScrollUp] = useState(false);
   const [trotroCanScrollDown, setTrotroCanScrollDown] = useState(false);
   const trotroScrollContentHeight = useRef(0);
@@ -955,13 +954,23 @@ export default function JourneyScreen() {
   );
 }
 
+// Local replacement for StyleSheet.absoluteFillObject, which is missing from the
+// current type definitions. Same four properties, spread into styles below.
+const fillParent = {
+  position: 'absolute' as const,
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Palette.GrayBackground,
   },
   mapPlaceholder: {
-    ...StyleSheet.absoluteFillObject,
+    ...fillParent,
     backgroundColor: Palette.GrayBackground,
     alignItems: 'center',
   },
@@ -1136,7 +1145,7 @@ const styles = StyleSheet.create({
   stopsScroll: {
     maxHeight: 180,
   },
-    stopsScrollUnbounded: {
+  stopsScrollUnbounded: {
     maxHeight: undefined,
   },
   fadeTop: {
@@ -1338,7 +1347,7 @@ const styles = StyleSheet.create({
     height: 30,
   },
   rideOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...fillParent,
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
   rideSheet: {
@@ -1618,7 +1627,7 @@ const styles = StyleSheet.create({
     color: Palette.CustomBlack,
   },
   trotroOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...fillParent,
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
   trotroSheet: {

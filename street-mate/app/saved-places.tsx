@@ -15,7 +15,7 @@ import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText as Text } from '@/components/app-text';
 import { Palette } from '@/constants/theme';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSavedPlaces } from '@/contexts/saved-places';
 
 const iconMap = {
@@ -40,21 +40,11 @@ export default function SavedPlacesScreen() {
   const [renameTarget, setRenameTarget] = useState<SavedPlace | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
-  const translateY = useRef(new Animated.Value(SHEET_OFFSET)).current;
+  const [translateY] = useState(() => new Animated.Value(SHEET_OFFSET));
 
   const openSheet = (place: SavedPlace) => {
     translateY.setValue(SHEET_OFFSET);
     setActivePlace(place);
-  };
-
-  const animateIn = () => {
-    Animated.spring(translateY, {
-      toValue: 0,
-      useNativeDriver: true,
-      damping: 20,
-      stiffness: 180,
-      mass: 0.6,
-    }).start();
   };
 
   // Kick off the slide-up the moment the sheet is requested, rather than
@@ -62,9 +52,17 @@ export default function SavedPlacesScreen() {
   // first. That extra hand-off is what caused the visible delay.
   useEffect(() => {
     if (activePlace) {
-      requestAnimationFrame(animateIn);
+      requestAnimationFrame(() => {
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          damping: 20,
+          stiffness: 180,
+          mass: 0.6,
+        }).start();
+      });
     }
-  }, [activePlace]);
+  }, [activePlace, translateY]);
 
   const closeSheet = (after?: (place: SavedPlace) => void) => {
     const place = activePlace;
@@ -80,8 +78,8 @@ export default function SavedPlacesScreen() {
 
   // Rename sheet — mirrors the "name this place" step used on the
   // add/edit-location screen.
-  const nameSheetSlide = useRef(new Animated.Value(NAME_SHEET_OFFSET)).current;
-  const nameOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const [nameSheetSlide] = useState(() => new Animated.Value(NAME_SHEET_OFFSET));
+  const [nameOverlayOpacity] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     if (renameTarget) {
@@ -101,7 +99,7 @@ export default function SavedPlacesScreen() {
         }),
       ]).start();
     }
-  }, [renameTarget]);
+  }, [renameTarget, nameSheetSlide, nameOverlayOpacity]);
 
   const closeRenameSheet = () => {
     Animated.parallel([
@@ -304,6 +302,16 @@ export default function SavedPlacesScreen() {
   );
 }
 
+// Local replacement for StyleSheet.absoluteFillObject, which is missing from the
+// current type definitions. Same four properties, spread into styles below.
+const fillParent = {
+  position: 'absolute' as const,
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -371,7 +379,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.LightGray,
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...fillParent,
     backgroundColor: 'rgba(0,0,0,0.35)',
   },
   sheet: {
@@ -420,14 +428,14 @@ const styles = StyleSheet.create({
     color: Palette.Red,
   },
   nameOverlayBlur: {
-    ...StyleSheet.absoluteFillObject,
+    ...fillParent,
   },
   nameOverlayTint: {
-    ...StyleSheet.absoluteFillObject,
+    ...fillParent,
     backgroundColor: 'rgba(0,0,0,0.35)',
   },
   nameSheetOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...fillParent,
     justifyContent: 'flex-end',
   },
   nameSheet: {

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { Animated, Dimensions, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -107,7 +107,7 @@ const worstAvailability = (values: string[]) =>
 export default function RecentTripsScreen() {
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [expandedLegKey, setExpandedLegKey] = useState<string | null>(null);
-  const overviewSlide = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const [overviewSlide] = useState(() => new Animated.Value(SCREEN_HEIGHT));
 
   const selectedTrip = recentTripsData.find((t) => t.id === selectedTripId) ?? null;
 

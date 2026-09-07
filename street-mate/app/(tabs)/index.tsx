@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Animated, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -23,13 +23,13 @@ const recentTrips = [
 ];
 
 const popularDestinations = ['Madina', 'Circle', 'Atomic Junction', 'Achimota'];
-const heroMessages = ["LET'S HIT THE STREETS!", 'YEN KC!'];
+const heroMessages = ["LET'S HIT THE STREETS!", 'YEN KƆ!'];
 
 export default function HomeScreen() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [messageIndex, setMessageIndex] = useState(0);
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const [slideAnim] = useState(() => new Animated.Value(0));
+  const [fadeAnim] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -48,8 +48,7 @@ export default function HomeScreen() {
     }, 3000);
 
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [slideAnim, fadeAnim]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -88,7 +87,14 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
         <View style={styles.heroCard}>
-          <Image source={require('@/assets/images/hero-card.png')} style={styles.heroCardImage} contentFit="cover" priority="high" cachePolicy="memory-disk" transition={150}/>
+          <Image
+            source={require('@/assets/images/hero-card.png')}
+            style={styles.heroCardImage}
+            contentFit="cover"
+            priority="high"
+            cachePolicy="memory-disk"
+            transition={150}
+          />
           <Animated.Text
             style={[
               styles.heroHeading,
@@ -267,16 +273,20 @@ const styles = StyleSheet.create({
     height: 32,
   },
   heroCard: {
-  borderRadius: 20,
-  padding: 20,
-  marginTop: 10,
-  marginBottom: 10,
-  overflow: 'hidden',
-  position: 'relative',
+    borderRadius: 20,
+    padding: 20,
+    marginTop: 10,
+    marginBottom: 10,
+    overflow: 'hidden',
+    position: 'relative',
   },
   heroCardImage: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 24,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 20,
   },
   heroHeading: {
     color: Palette.White,

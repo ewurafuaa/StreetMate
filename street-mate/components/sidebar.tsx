@@ -1,6 +1,6 @@
 //sidebar.tsx
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, Dimensions, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
@@ -26,8 +26,8 @@ type SidebarProps = {
 };
 
 export function Sidebar({ visible, onClose, activeKey = 'home', onSelect }: SidebarProps) {
-  const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
-  const overlayAnim = useRef(new Animated.Value(0)).current;
+  const [slideAnim] = useState(() => new Animated.Value(-SIDEBAR_WIDTH));
+  const [overlayAnim] = useState(() => new Animated.Value(0));
   const [darkModeOn, setDarkModeOn] = useState(false);
 
   useEffect(() => {
@@ -45,11 +45,6 @@ export function Sidebar({ visible, onClose, activeKey = 'home', onSelect }: Side
     ]).start();
   }, [visible, slideAnim, overlayAnim]);
 
-  if (!visible) {
-    // Still render while animating out; skip entirely when fully closed and not visible.
-    // Simple approach: only skip pointer events, keep mounted for smooth animation.
-  }
-
   const handleMenuPress = (key: string) => {
     onClose();
     onSelect?.(key);
@@ -64,8 +59,6 @@ export function Sidebar({ visible, onClose, activeKey = 'home', onSelect }: Side
       router.push('/route-hub');
     }
     // Add more routes here as you build them, e.g.:
-    // if (key === 'saved') router.push('/saved-places');
-    // if (key === 'routehub') router.push('/route-hub');
     // if (key === 'tips') router.push('/tips');
     // if (key === 'about') router.push('/about');
   };
@@ -117,9 +110,19 @@ export function Sidebar({ visible, onClose, activeKey = 'home', onSelect }: Side
   );
 }
 
+// Local replacement for StyleSheet.absoluteFillObject, which is missing from the
+// current type definitions. Same four properties, spread into styles below.
+const fillParent = {
+  position: 'absolute' as const,
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+};
+
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...fillParent,
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
   panel: {
