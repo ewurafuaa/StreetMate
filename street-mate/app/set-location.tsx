@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText as Text } from '@/components/app-text';
 import { Palette } from '@/constants/theme';
 import { useSavedPlaces } from '@/contexts/saved-places';
+import { cancelLocationRequest, deliverLocation, hasPendingLocationRequest } from '@/utils/location-picker';
 
 // Mock nearby locations — replace with real reverse-geocoding as the map center changes.
 const nearbyLocations = [
@@ -32,6 +33,12 @@ export default function SetLocationScreen() {
   const { id, mode } = useLocalSearchParams<{ id?: string; mode?: string }>();
   const isEditingLocation = !!id && mode === 'location';
 
+  // Both conditions required. Expo Router can carry `mode=pick` over from a
+  // previous navigation, so the param alone would make the Saved Places flow
+  // look like a Route Hub pick and pop the user onto the wrong screen. A
+  // registered handler is what actually proves a screen is waiting for a value.
+  const isPickingForField = mode === 'pick' && hasPendingLocationRequest();
+
   const [locationIndex, setLocationIndex] = useState(0);
   const [showNameStep, setShowNameStep] = useState(false);
   const [placeName, setPlaceName] = useState('');
@@ -45,6 +52,12 @@ export default function SetLocationScreen() {
   useEffect(() => {
     Animated.spring(sheetSlide, { toValue: 0, useNativeDriver: true, friction: 9, tension: 60 }).start();
   }, [sheetSlide]);
+
+  // Any exit that isn't a confirm — swipe-back, hardware back, navigating away —
+  // would otherwise leave the handler registered and poison the next visit.
+  useEffect(() => {
+    return () => cancelLocationRequest();
+  }, []);
 
   const updateLocationName = (nextIndex: number) => {
     if (nextIndex === locationIndex) return;
@@ -69,7 +82,23 @@ export default function SetLocationScreen() {
     })
   );
 
+  const handleBack = () => {
+    if (showNameStep) {
+      handleBackToLocation();
+      return;
+    }
+    router.back();
+  };
+
   const handleConfirmLocation = () => {
+    // Picking a location on behalf of another screen (e.g. Route Hub): hand the
+    // value back and pop, so that screen's other fields stay as the user left them.
+    if (isPickingForField) {
+      deliverLocation(nearbyLocations[locationIndex]);
+      router.back();
+      return;
+    }
+
     // Editing an existing place's location: just update it and go
     // straight back to Saved Places — no name step needed.
     if (isEditingLocation && id) {
@@ -137,9 +166,7 @@ export default function SetLocationScreen() {
       </View>
 
       <SafeAreaView style={styles.topSafeArea} edges={['top']}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => (showNameStep ? handleBackToLocation() : router.back())}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <Image
             source={require('@/assets/images/icons/chevron-left.png')}
             style={styles.backIcon}
@@ -153,7 +180,10 @@ export default function SetLocationScreen() {
         <View style={styles.dragHandle} />
 
         <View style={styles.sheetTopRow}>
-          <Animated.Text style={[styles.locationName, { opacity: nameOpacity }]}>
+          <Animated.Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[styles.locationName, { opacity: nameOpacity }]}>
             {nearbyLocations[locationIndex]}
           </Animated.Text>
           <TouchableOpacity style={styles.searchButton}>

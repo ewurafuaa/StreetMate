@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import {
@@ -16,8 +16,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { AppText as Text } from '@/components/app-text';
 import { Palette } from '@/constants/theme';
+import { requestLocation } from '@/utils/location-picker';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
+
+// Fare input rules — adjust these rather than the logic below.
+const CURRENCY_PREFIX = 'GH¢';
+const MAX_DECIMAL_PLACES = 2; // real currency: 5 → 5.00
+const MAX_WHOLE_DIGITS = 3; // caps fares below 1000
 
 export default function RouteHubScreen() {
   const [activeTab, setActiveTab] = useState<'add' | 'request'>('add');
@@ -28,6 +34,7 @@ export default function RouteHubScreen() {
 
   // Add a Route fields
   const [estimatedFare, setEstimatedFare] = useState('');
+  const [fareFocused, setFareFocused] = useState(false);
   const [stops, setStops] = useState<string[]>([]);
 
   // Request a Route fields
@@ -38,6 +45,10 @@ export default function RouteHubScreen() {
   const [fieldQuery, setFieldQuery] = useState('');
   const [fieldSheetSlide] = useState(() => new Animated.Value(SCREEN_HEIGHT));
   const [fieldOverlayOpacity] = useState(() => new Animated.Value(0));
+
+  // Show the currency prefix as soon as the field is tapped, and keep it
+  // visible once a value exists so the number never reads as unitless.
+  const showFarePrefix = fareFocused || estimatedFare.length > 0;
 
   const handleSwap = () => {
     setStartingPoint(endPoint);
@@ -58,6 +69,40 @@ export default function RouteHubScreen() {
 
   const handleTabChange = (tab: 'add' | 'request') => {
     setActiveTab(tab);
+  };
+
+  // Filters keystrokes as they arrive: digits and a single decimal point only,
+  // capped at MAX_WHOLE_DIGITS before the point and MAX_DECIMAL_PLACES after.
+  // Numeric keyboards still allow pasting, so this can't be left to keyboardType.
+  const handleFareChange = (raw: string) => {
+    let cleaned = raw.replace(/[^0-9.]/g, '');
+
+    const firstDot = cleaned.indexOf('.');
+    if (firstDot !== -1) {
+      // Keep the first decimal point, drop any others.
+      cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
+    }
+
+    const [whole = '', decimals = ''] = cleaned.split('.');
+    let next = whole.slice(0, MAX_WHOLE_DIGITS);
+    if (firstDot !== -1) {
+      next += '.' + decimals.slice(0, MAX_DECIMAL_PLACES);
+    }
+
+    setEstimatedFare(next);
+  };
+
+  // Formats to real currency when focus leaves: 5 → 5.00, 5.1 → 5.10
+  const handleFareBlur = () => {
+    setFareFocused(false);
+
+    const value = parseFloat(estimatedFare);
+    if (Number.isNaN(value)) {
+      // Covers an empty field or a lone "." — clear it rather than showing NaN.
+      setEstimatedFare('');
+      return;
+    }
+    setEstimatedFare(value.toFixed(MAX_DECIMAL_PLACES));
   };
 
   const openFieldSheet = (field: 'start' | 'end') => {
@@ -83,11 +128,22 @@ export default function RouteHubScreen() {
   };
 
   const handleSetLocationOnMap = () => {
+    // Capture which field asked before closeFieldSheet clears activeField.
+    const field = activeField;
+
+    requestLocation((value) => {
+      if (field === 'start') setStartingPoint(value);
+      if (field === 'end') setEndPoint(value);
+    });
+
     closeFieldSheet();
-    router.push('/set-location');
+    router.push({ pathname: '/set-location', params: { mode: 'pick' } });
   };
 
-  const canSaveAddRoute = startingPoint.trim().length > 0 && endPoint.trim().length > 0 && estimatedFare.trim().length > 0;
+  const fareValue = parseFloat(estimatedFare);
+  const hasValidFare = !Number.isNaN(fareValue) && fareValue > 0;
+
+  const canSaveAddRoute = startingPoint.trim().length > 0 && endPoint.trim().length > 0 && hasValidFare;
   const canSaveRequestRoute = startingPoint.trim().length > 0 && endPoint.trim().length > 0;
   const canSave = activeTab === 'add' ? canSaveAddRoute : canSaveRequestRoute;
 
@@ -134,10 +190,14 @@ export default function RouteHubScreen() {
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled">
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag">
           <View style={styles.pointsRow}>
             <TouchableOpacity style={styles.pointInputTouchable} activeOpacity={0.8} onPress={() => openFieldSheet('start')}>
-              <Text style={startingPoint ? styles.pointInputFilledText : styles.pointInputPlaceholder}>
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={startingPoint ? styles.pointInputFilledText : styles.pointInputPlaceholder}>
                 {startingPoint || 'Starting point'}
               </Text>
             </TouchableOpacity>
@@ -149,7 +209,10 @@ export default function RouteHubScreen() {
               />
             </TouchableOpacity>
             <TouchableOpacity style={styles.pointInputTouchable} activeOpacity={0.8} onPress={() => openFieldSheet('end')}>
-              <Text style={endPoint ? styles.pointInputFilledText : styles.pointInputPlaceholder}>
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={endPoint ? styles.pointInputFilledText : styles.pointInputPlaceholder}>
                 {endPoint || 'End point'}
               </Text>
             </TouchableOpacity>
@@ -157,14 +220,22 @@ export default function RouteHubScreen() {
 
           {activeTab === 'add' ? (
             <>
-              <TextInput
-                value={estimatedFare}
-                onChangeText={setEstimatedFare}
-                placeholder="Estimated Fare (GH¢)"
-                placeholderTextColor={Palette.Placeholder}
-                keyboardType="numeric"
-                style={styles.fareInput}
-              />
+              <View style={styles.fareInputWrap}>
+                {showFarePrefix && (
+                  <Text style={styles.farePrefix}>{CURRENCY_PREFIX}</Text>
+                )}
+                <TextInput
+                  value={estimatedFare}
+                  onChangeText={handleFareChange}
+                  onFocus={() => setFareFocused(true)}
+                  onBlur={handleFareBlur}
+                  placeholder={showFarePrefix ? '0.00' : 'Estimated Fare (GH¢)'}
+                  placeholderTextColor={Palette.Placeholder}
+                  keyboardType="decimal-pad"
+                  returnKeyType="done"
+                  style={styles.fareInput}
+                />
+              </View>
 
               <Text weight="semibold" style={styles.sectionLabel}>Add Intermediate Stops</Text>
 
@@ -306,7 +377,6 @@ const styles = StyleSheet.create({
   tabsRow: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    marginBottom: 20,
   },
   tab: {
     flex: 1,
@@ -327,7 +397,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingVertical: 20,
   },
   pointsRow: {
     flexDirection: 'row',
@@ -368,20 +438,32 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
   },
-  fareInput: {
+  fareInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: Palette.White,
     borderRadius: 10,
     paddingVertical: 15,
     paddingHorizontal: 16,
-    fontSize: 15,
-    color: Palette.CustomBlack,
-    fontFamily: 'Poppins_400Regular',
     marginBottom: 20,
     shadowColor: Palette.Black,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 8,
+  },
+  farePrefix: {
+    fontSize: 15,
+    color: Palette.CustomBlack,
+    fontFamily: 'Poppins_500Medium',
+  },
+  fareInput: {
+    flex: 1,
+    padding: 0,
+    fontSize: 15,
+    color: Palette.CustomBlack,
+    fontFamily: 'Poppins_400Regular',
   },
   sectionLabel: {
     fontSize: 16,
@@ -473,12 +555,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   fieldOverlay: {
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: 'rgba(0,0,0,0.3)'
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
   fieldSheet: {
     position: 'absolute',
