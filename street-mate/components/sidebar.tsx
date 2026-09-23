@@ -14,7 +14,7 @@ const menuItems = [
   { key: 'recent', label: 'Recent Trips', icon: require('@/assets/images/icons/clock-3.png') },
   { key: 'saved', label: 'Saved Places', icon: require('@/assets/images/icons/map-pin-house.png') },
   { key: 'routehub', label: 'Route Hub', icon: require('@/assets/images/icons/map-20-regular.png') },
-  { key: 'tips', label: 'Tips', icon: require('@/assets/images/icons/LightBulbOutline.png') },
+  { key: 'faqs', label: 'FAQs', icon: require('@/assets/images/icons/question-circle-20-regular.png') },
   { key: 'about', label: 'About', icon: require('@/assets/images/icons/info-circle.png') },
 ];
 

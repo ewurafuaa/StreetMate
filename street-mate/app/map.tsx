@@ -12,12 +12,15 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
+  Image as RNImage,
 } from 'react-native';
+import MapView, { Marker, type Region } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppText as Text } from '@/components/app-text';
 import { Palette } from '@/constants/theme';
+import { CURRENT_LOCATION, stopsInRegion } from '@/data/stops';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 
@@ -114,6 +117,37 @@ const mockAllRoutes = [
   },
 ];
 
+// Every Marker is a native view, so the full 3,377-stop set cannot be rendered.
+// Only what sits inside the current viewport is drawn, and even that is capped.
+const MAX_VISIBLE_STOPS = 120;
+
+// Falls back to the corridor the app is built around when no origin is passed.
+const DEFAULT_ORIGIN = { latitude: CURRENT_LOCATION.lat, longitude: CURRENT_LOCATION.lng };
+
+const toCoord = (lat?: string, lng?: string) => {
+  const latitude = Number(lat);
+  const longitude = Number(lng);
+  if (!lat || !lng || Number.isNaN(latitude) || Number.isNaN(longitude)) return null;
+  return { latitude, longitude };
+};
+
+// Frames both ends of the journey with a margin; falls back to a
+// neighbourhood-level view when there is only one point to show.
+const regionFor = (
+  origin: { latitude: number; longitude: number },
+  destination: { latitude: number; longitude: number } | null
+): Region => {
+  if (!destination) {
+    return { ...origin, latitudeDelta: 0.05, longitudeDelta: 0.05 };
+  }
+  return {
+    latitude: (origin.latitude + destination.latitude) / 2,
+    longitude: (origin.longitude + destination.longitude) / 2,
+    latitudeDelta: Math.max(Math.abs(origin.latitude - destination.latitude) * 2, 0.03),
+    longitudeDelta: Math.max(Math.abs(origin.longitude - destination.longitude) * 2, 0.03),
+  };
+};
+
 const MAX_ROUTES_HEIGHT = Dimensions.get('window').height * 0.5;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SWIPE_THRESHOLD = 50;
@@ -182,7 +216,23 @@ function RouteCard({
 }
 
 export default function MapScreen() {
-  const { origin, destination } = useLocalSearchParams<{ origin?: string; destination?: string }>();
+  const { origin, destination, destLat, destLng, originLat, originLng } = useLocalSearchParams<{
+    origin?: string;
+    destination?: string;
+    destLat?: string;
+    destLng?: string;
+    originLat?: string;
+    originLng?: string;
+  }>();
+
+  // Coordinates arrive from the search screen as strings; absent ones mean the
+  // screen was opened without a selected destination.
+  const originCoord = toCoord(originLat, originLng) ?? DEFAULT_ORIGIN;
+  const destinationCoord = toCoord(destLat, destLng);
+
+  // Region drives which stops are rendered — see stopsInRegion.
+  const [region, setRegion] = useState<Region>(() => regionFor(originCoord, destinationCoord));
+  const visibleStops = stopsInRegion(region, MAX_VISIBLE_STOPS);
   const [activeTab, setActiveTab] = useState<'best' | 'all'>('best');
   const [otherRoutesExpanded, setOtherRoutesExpanded] = useState(true);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
@@ -399,25 +449,37 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Placeholder map background — swap for react-native-maps once wired up */}
-      <View style={styles.mapPlaceholder}>
-        <View style={styles.routeLine} />
-        <View style={[styles.busMarker, styles.busMarkerStart]}>
-          <Image
-            source={require('@/assets/images/icons/bus-stop.png')}
-            style={styles.busMarkerIcon}
-            contentFit="contain"
+      {/* Live map. Apple Maps on iOS needs no API key; do not pass PROVIDER_GOOGLE. */}
+      <MapView
+        style={StyleSheet.absoluteFill}
+        initialRegion={region}
+        onRegionChangeComplete={setRegion}
+        showsUserLocation
+        showsMyLocationButton={false}
+        showsCompass={false}>
+        {visibleStops.map((stop) => (
+          <Marker
+            key={stop.id}
+            coordinate={{ latitude: stop.lat, longitude: stop.lng }}
+            title={stop.name}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges={false}>
+            <RNImage
+              source={require('@/assets/images/icons/bus-stop.png')}
+              style={styles.stopMarkerIcon}
+              resizeMode="contain"
+            />
+          </Marker>
+        ))}
+
+        {destinationCoord && (
+          <Marker
+            coordinate={destinationCoord}
+            title={destination ?? 'Destination'}
+            pinColor={Palette.Red}
           />
-        </View>
-        <View style={[styles.busMarker, styles.busMarkerEnd]}>
-          <Image
-            source={require('@/assets/images/icons/bus-stop.png')}
-            style={styles.busMarkerIcon}
-            contentFit="contain"
-          />
-        </View>
-        <View style={styles.destinationDot} />
-      </View>
+        )}
+      </MapView>
 
       <SafeAreaView style={styles.topBarSafeArea} edges={['top']}>
         <View style={styles.topBar}>
@@ -849,48 +911,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Palette.GrayBackground,
   },
-  mapPlaceholder: {
-    ...fillParent,
-    backgroundColor: Palette.GrayBackground,
-  },
-  routeLine: {
-    position: 'absolute',
-    top: '30%',
-    left: '20%',
-    width: '55%',
-    height: 2,
-    backgroundColor: Palette.CustomBlack,
-    transform: [{ rotate: '18deg' }],
-  },
-  busMarker: {
-    position: 'absolute',
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: Palette.LightGray,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  busMarkerStart: {
-    top: '24%',
-    left: '18%',
-  },
-  busMarkerEnd: {
-    top: '48%',
-    left: '42%',
-  },
-  busMarkerIcon: {
-    width: 18,
-    height: 18,
-  },
-  destinationDot: {
-    position: 'absolute',
-    top: '27%',
-    left: '32%',
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: Palette.CustomBlack,
+  stopMarkerIcon: {
+    width: 26,
+    height: 26,
   },
   topBarSafeArea: {
     position: 'absolute',

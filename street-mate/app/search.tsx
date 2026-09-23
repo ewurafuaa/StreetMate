@@ -1,22 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText as Text } from '@/components/app-text';
 import { Palette } from '@/constants/theme';
-
-// Mock destination data — replace with real Places/Geocoding results later.
-const mockDestinations = [
-  { id: '1', name: 'University of Professional Studies, Accra (UPSA)', address: 'New Road, Madina, Ghana', distance: '19.7 km' },
-  { id: '2', name: 'University of Ghana', address: 'Legon Boundary Road, Ghana', distance: '2.9 km' },
-  { id: '3', name: 'University of Ghana Sports Stadium', address: 'Academic Freedom Road, Ghana', distance: '19.7 km' },
-  { id: '4', name: 'University of Ghana Medical Centre', address: 'Adamafio Link, Ghana', distance: '19.7 km' },
-  { id: '5', name: 'UNIIK Foods', address: 'Adenta Municipality, Ghana', distance: '10.0 km' },
-];
-
-// Mock current location text — replace with real reverse-geocoded location later.
-const currentLocationLabel = 'Adenta Municipality';
+import { CURRENT_LOCATION, formatDistance, searchStops, type StopResult } from '@/data/stops';
 
 function HighlightedName({ name, query }: { name: string; query: string }) {
   if (!query) {
@@ -41,16 +30,26 @@ function HighlightedName({ name, query }: { name: string; query: string }) {
 export default function SearchScreen() {
   const [query, setQuery] = useState('');
 
-  const filteredResults = query.trim().length > 0
-    ? mockDestinations.filter((item) =>
-        item.name.toLowerCase().includes(query.trim().toLowerCase())
-      )
-    : [];
+  // Real lookup over the OSM stop dataset, ranked by name match then proximity.
+  // useMemo keeps the scan off the render path while the user types.
+  const filteredResults = useMemo(() => searchStops(query, CURRENT_LOCATION), [query]);
 
-  const handleSelect = (destinationName: string) => {
+  const trimmedQuery = query.trim();
+  const hasQuery = trimmedQuery.length > 0;
+
+  // Coordinates travel with the selection so the map can centre on the
+  // destination without having to resolve the name a second time.
+  const handleSelect = (stop: StopResult) => {
     router.push({
       pathname: '/map',
-      params: { origin: currentLocationLabel, destination: destinationName },
+      params: {
+        origin: CURRENT_LOCATION.name,
+        destination: stop.name,
+        destLat: String(stop.lat),
+        destLng: String(stop.lng),
+        originLat: String(CURRENT_LOCATION.lat),
+        originLng: String(CURRENT_LOCATION.lng),
+      },
     });
   };
 
@@ -105,32 +104,41 @@ export default function SearchScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}>
-          {query.trim().length > 0 && (
+          {hasQuery && (
             <View style={styles.resultsList}>
               {filteredResults.map((item) => (
                 <TouchableOpacity
                   key={item.id}
                   style={styles.resultRow}
-                  onPress={() => handleSelect(item.name)}>
+                  onPress={() => handleSelect(item)}>
                   <View style={styles.resultIconGroup}>
                     <Image
                       source={require('@/assets/images/icons/location-result.png')}
                       style={styles.resultPinIcon}
                       contentFit="contain"
                     />
-                    <Text style={styles.resultDistance}>{item.distance}</Text>
+                    <Text style={styles.resultDistance}>{formatDistance(item.distanceKm)}</Text>
                   </View>
                   <View style={styles.resultTextGroup}>
-                    <HighlightedName name={item.name} query={query.trim()} />
-                    <Text style={styles.resultAddress}>{item.address}</Text>
+                    <HighlightedName name={item.name} query={trimmedQuery} />
+                    <Text style={styles.resultAddress}>Bus stop</Text>
                   </View>
                 </TouchableOpacity>
               ))}
+
+              {filteredResults.length === 0 && (
+                <View style={styles.emptyResults}>
+                  <Text style={styles.emptyResultsText}>No stops match that name.</Text>
+                  <Text style={styles.emptyResultsHint}>
+                    Try a nearby landmark or junction instead.
+                  </Text>
+                </View>
+              )}
             </View>
           )}
 
           {/* Set location on map */}
-          <TouchableOpacity style={styles.row}>
+          <TouchableOpacity style={styles.row} onPress={() => router.push('/stops-map')}>
             <Image
               source={require('@/assets/images/icons/map-pinned.png')}
               style={styles.rowIcon}
@@ -142,7 +150,7 @@ export default function SearchScreen() {
           <View style={styles.divider} />
 
           {/* Saved places */}
-          <TouchableOpacity style={styles.row}>
+          <TouchableOpacity style={styles.row} onPress={() => router.push('/saved-places')}>
             <Image
               source={require('@/assets/images/icons/map-pin-house.png')}
               style={styles.rowIcon}
@@ -284,6 +292,18 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   resultAddress: {
+    fontSize: 14,
+    color: Palette.DarkGray,
+  },
+  emptyResults: {
+    paddingVertical: 20,
+  },
+  emptyResultsText: {
+    fontSize: 16,
+    color: Palette.CustomBlack,
+    marginBottom: 5,
+  },
+  emptyResultsHint: {
     fontSize: 14,
     color: Palette.DarkGray,
   },

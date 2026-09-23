@@ -64,6 +64,7 @@ export default function RootLayout() {
           <Stack.Screen name="add-place" options={{ headerShown: false, presentation: 'card' }} />
           <Stack.Screen name="set-location" options={{ headerShown: false, presentation: 'card' }} />
           <Stack.Screen name="route-hub" options={{ headerShown: false, presentation: 'card' }} />
+          <Stack.Screen name="stops-map" options={{ headerShown: false, presentation: 'card' }} />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
