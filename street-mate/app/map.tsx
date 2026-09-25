@@ -20,7 +20,9 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppText as Text } from '@/components/app-text';
 import { Palette } from '@/constants/theme';
+import { STREETMATE_MAP_STYLE } from '@/constants/map-style';
 import { CURRENT_LOCATION, stopsInRegion } from '@/data/stops';
+import { MAP_PROVIDER } from '@/utils/map-provider';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 
@@ -450,7 +452,9 @@ export default function MapScreen() {
   return (
     <View style={styles.container}>
       {/* Live map. Apple Maps on iOS needs no API key; do not pass PROVIDER_GOOGLE. */}
-      <MapView
+      <MapView        
+        provider={MAP_PROVIDER}
+        customMapStyle={STREETMATE_MAP_STYLE}
         style={StyleSheet.absoluteFill}
         initialRegion={region}
         onRegionChangeComplete={setRegion}
@@ -638,7 +642,7 @@ export default function MapScreen() {
                 <Text weight="semibold" style={styles.routeSectionTitle}>Recommended</Text>
                 <RouteCard route={recommendedRoute} highlighted onPress={() => selectRoute(recommendedRoute.id)} />
               </View>
-            )}
+            )}  
 
             {otherRoutes.length > 0 && (
               <Animated.View

@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText as Text } from '@/components/app-text';
 import { Palette } from '@/constants/theme';
 import { CURRENT_LOCATION, stopsInRegion } from '@/data/stops';
+import { MAP_PROVIDER } from '@/utils/map-provider';
 
 // Each Marker is a native view, so the full dataset cannot be rendered at once.
 const MAX_VISIBLE_STOPS = 120;
@@ -25,6 +26,7 @@ export default function StopsMapScreen() {
   return (
     <View style={styles.container}>
       <MapView
+        provider={MAP_PROVIDER}
         style={StyleSheet.absoluteFill}
         initialRegion={INITIAL_REGION}
         onRegionChangeComplete={setRegion}
